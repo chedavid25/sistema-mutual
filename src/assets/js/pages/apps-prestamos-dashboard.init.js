@@ -1,7 +1,6 @@
 /**
  * apps-prestamos-dashboard.init.js
- * Motor analítico y visualización de créditos.
- * Versión FINAL: Eliminación de dependencias externas para velocidad máxima.
+ * Versión ULTRA-RÁPIDA: Carga única de métricas globales + Cacheo inteligente.
  */
 
 import { db } from '../firebase-config.js';
@@ -16,20 +15,19 @@ import {
 
 $(document).ready(function() {
 
-    // Inicializar Tooltips
+    // 1. Configuración UI
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
 
-    // Elementos UI
     const filterYear = $('#filter-year');
     const filterPeriod = $('#filter-period');
     const filterStart = $('#filter-start-date');
     const filterEnd = $('#filter-end-date');
     const btnApply = $('#btn-apply-filters');
 
-    // Instancias de Gráficos
+    // 2. Instancias de Gráficos
     let charts = {
         evolucion: null,
         ranking: null,
@@ -46,8 +44,10 @@ $(document).ready(function() {
         riesgoEdad: null
     };
 
-    // Mapa de Nombres en Memoria (Se llena dinámicamente)
+    // 3. Caché Local
     let cuitNames = {}; 
+
+    // --- FUNCIONES UTILITARIAS ---
 
     const initFilters = () => {
         const currentYear = new Date().getFullYear();
@@ -76,13 +76,8 @@ $(document).ready(function() {
                 case 'Q4': start = new Date(y, 9, 1); end = new Date(y, 12, 0); break;
                 case 'S1': start = new Date(y, 0, 1); end = new Date(y, 6, 0); break;
                 case 'S2': start = new Date(y, 6, 1); end = new Date(y, 12, 0); break;
-                case 'year':
-                    start = new Date(y, 0, 1);
-                    end = new Date(y, 11, 31);
-                    break;
-                default:
-                    start = new Date(y, 0, 1);
-                    end = new Date(y, 11, 31);
+                case 'year': start = new Date(y, 0, 1); end = new Date(y, 11, 31); break;
+                default: start = new Date(y, 0, 1); end = new Date(y, 11, 31);
             }
         }
         return { start, end };
@@ -93,11 +88,11 @@ $(document).ready(function() {
         const birth = birthDate.toDate ? birthDate.toDate() : new Date(birthDate);
         let age = todayDate.getFullYear() - birth.getFullYear();
         const m = todayDate.getMonth() - birth.getMonth();
-        if (m < 0 || (m === 0 && todayDate.getDate() < birth.getDate())) {
-            age--;
-        }
+        if (m < 0 || (m === 0 && todayDate.getDate() < birth.getDate())) age--;
         return age;
     };
+
+    // --- DATA FETCHING ---
 
     const fetchData = async (startDate, endDate) => {
         const loansRef = collection(db, "loans_installments");
@@ -106,18 +101,15 @@ $(document).ready(function() {
             where("dueDate", ">=", startDate),
             where("dueDate", "<=", endDate)
         );
-
         const querySnapshot = await getDocs(q);
-        console.log(`FetchData: ${querySnapshot.size} registros encontrados.`);
         const results = [];
         querySnapshot.forEach((doc) => results.push(doc.data()));
         return results;
     };
 
-    /**
-     * PROCESAMIENTO CENTRALIZADO
-     */
+    // --- PROCESAMIENTO PRINCIPAL (Ventas, Flujo, Riesgo de Periodo) ---
     const processDashboardData = (data) => {
+        // Inicializadores
         const kpis = { expected: 0, paid: 0, mora: 0, totalDelayedDays: 0, delayedItemsCount: 0 };
         const monthlyEvolucion = {};
         const productsRanking = {};
@@ -125,7 +117,7 @@ $(document).ready(function() {
         const paymentStates = { 'PAGADO': 0, 'PARCIAL': 0, 'IMPAGO': 0 };
         const lineDelay = {};
         const lineHealth = {};
-        const paymentsByClient = {}; // CUIT -> Monto
+        const paymentsByClient = {};
         const monthlyRefinancing = {}; 
         const providerDelay = {}; 
         const portfolioComposition = { 'Vigente': 0, 'Mora 30': 0, 'Mora 60': 0, 'Mora 90+': 0 };
@@ -138,60 +130,53 @@ $(document).ready(function() {
             const month = date.getMonth();
             const line = item.productLine || 'Otros';
             const provider = item.provider || 'Mutual';
-            
             const capital = item.expectedAmount || 0;
             const paid = item.paidAmount || 0;
             const debt = item.remainingBalance || 0;
-
             const isNewSale = parseInt(item.installmentNumber) === 1; 
             
-            // Guardar Nombre en caché local para uso posterior
-            if (item.clientCuit && item.clientName) {
-                cuitNames[item.clientCuit] = item.clientName;
-            }
+            // Cacheo de nombres
+            if (item.clientCuit && item.clientName) cuitNames[item.clientCuit] = item.clientName;
 
-            // 1. VENTAS / DINERO FRESCO (Solo cuota 1)
+            // 1. Ventas (Solo cuota 1)
             if (isNewSale) {
                 const issueDate = item.issueDate ? (item.issueDate.toDate ? item.issueDate.toDate() : new Date(item.issueDate)) : date;
                 const saleMonth = issueDate.getMonth();
-
                 if (!monthlyRefinancing[saleMonth]) monthlyRefinancing[saleMonth] = { cash: 0, refinanced: 0 };
-                
-                const loanRefinanced = item.refinancedAmount || 0; 
-                const loanCash = item.disbursedAmount || 0;
-
-                monthlyRefinancing[saleMonth].refinanced += loanRefinanced;
-                monthlyRefinancing[saleMonth].cash += loanCash;
+                monthlyRefinancing[saleMonth].refinanced += (item.refinancedAmount || 0);
+                monthlyRefinancing[saleMonth].cash += (item.disbursedAmount || 0);
             }
 
-            // 2. FLUJO Y COBRANZA
+            // 2. KPIs y Flujo
             kpis.expected += Number(capital.toFixed(2));
             kpis.paid += Number(paid.toFixed(2));
             
             const isUnpaid = item.status === 'IMPAGO' || item.status === 'PARCIAL' || (debt > 10 && !item.status);
             if (isUnpaid) kpis.mora += Number(debt.toFixed(2));
-            
             if (item.daysDelayed > 0) {
                 kpis.totalDelayedDays += item.daysDelayed;
                 kpis.delayedItemsCount++;
             }
 
+            // Evolución Vencimientos
             if (!monthlyEvolucion[month]) monthlyEvolucion[month] = { amount: 0, count: 0 };
             monthlyEvolucion[month].amount += capital;
             monthlyEvolucion[month].count += 1;
 
+            // Ranking y Flujo
             productsRanking[line] = (productsRanking[line] || 0) + capital;
-
             if (!monthlyFlujo[month]) monthlyFlujo[month] = { expected: 0, paid: 0 };
             monthlyFlujo[month].expected += capital;
             monthlyFlujo[month].paid += paid;
 
+            // Estados y Proveedores
             const status = (item.status || 'IMPAGO').toUpperCase();
             if (paymentStates[status] !== undefined) paymentStates[status]++;
 
             if (!providerDelay[provider]) providerDelay[provider] = { totalDelay: 0, count: 0, amount: 0 };
             providerDelay[provider].amount += capital;
 
+            // Cálculo Mora Puntual
             let currentDelay = 0;
             const due = date;
             const paidDate = item.paymentDate ? (item.paymentDate.toDate ? item.paymentDate.toDate() : new Date(item.paymentDate)) : null;
@@ -228,14 +213,11 @@ $(document).ready(function() {
             else if (currentDelay <= 60) portfolioComposition['Mora 60'] += capital;
             else portfolioComposition['Mora 90+'] += capital;
 
-            // 3. RIESGO Y DEMOGRAFICO (Usando datos des-normalizados)
+            // Riesgo Edad
             if (item.clientCuit) {
-                 if (paid > 0) {
-                     paymentsByClient[item.clientCuit] = (paymentsByClient[item.clientCuit] || 0) + paid;
-                 }
-
+                 if (paid > 0) paymentsByClient[item.clientCuit] = (paymentsByClient[item.clientCuit] || 0) + paid;
+                 
                  let ageGroup = 'N/D';
-                 // Aquí usamos la fecha que YA viene en la cuota, sin consultar caché
                  if (item.clientBirthDate) {
                      const age = calculateAge(item.clientBirthDate, today);
                      if (age >= 18 && age <= 25) ageGroup = '18-25';
@@ -255,6 +237,8 @@ $(document).ready(function() {
             monthlyRefinancing, providerDelay, portfolioComposition, ageRisk
         };
     };
+
+    // --- ACTUALIZACIÓN UI ---
 
     const updateKPIs = (kpis) => {
         const effectiveRate = kpis.expected > 0 ? (kpis.paid / kpis.expected) * 100 : 0;
@@ -461,6 +445,10 @@ $(document).ready(function() {
      */
     const renderGlobalMoraMetrics = async () => {
         try {
+            // Loading state local
+             document.querySelector("#chart-bucket-mora").innerHTML = '<div class="d-flex justify-content-center align-items-center" style="height: 100%; min-height: 300px;"><div class="text-center"><div class="spinner-border text-primary" role="status"></div></div></div>';
+             document.querySelector("#chart-top-morosos").innerHTML = '<div class="d-flex justify-content-center align-items-center" style="height: 100%; min-height: 300px;"><div class="text-center"><div class="spinner-border text-primary" role="status"></div></div></div>';
+
             const today = new Date();
             // Optimización: Solo traer lo que realmente es deuda
             const q = query(collection(db, "loans_installments"), where("status", "in", ["IMPAGO", "PARCIAL"]));
@@ -543,6 +531,8 @@ $(document).ready(function() {
      */
     const renderProyeccionLiquidez = async () => {
         try {
+            document.querySelector("#chart-proyeccion-liquidez").innerHTML = '<div class="d-flex justify-content-center align-items-center" style="height: 100%; min-height: 300px;"><div class="text-center"><div class="spinner-border text-primary" role="status"></div></div></div>';
+
             const today = new Date();
             const future = new Date();
             future.setMonth(today.getMonth() + 12);
@@ -598,9 +588,9 @@ $(document).ready(function() {
             </div>`;
         
         ['#chart-evolucion-ventas', '#chart-ranking-productos', '#chart-flujo-caja', 
-         '#chart-comportamiento-pago', '#chart-atraso-linea', '#chart-bucket-mora', 
-         '#chart-salud-cartera', '#chart-demografico', '#chart-top-morosos', 
-         '#chart-top-pagadores', '#chart-proyeccion-liquidez', '#chart-dinero-fresco', '#chart-composicion-cartera', '#chart-demora-proveedor', '#chart-riesgo-edad'].forEach(selector => {
+         '#chart-comportamiento-pago', '#chart-atraso-linea', 
+         '#chart-salud-cartera', '#chart-demografico', 
+         '#chart-top-pagadores', '#chart-dinero-fresco', '#chart-composicion-cartera', '#chart-demora-proveedor', '#chart-riesgo-edad'].forEach(selector => {
             const el = document.querySelector(selector);
             if(el) el.innerHTML = loadingHTML;
         });
@@ -623,10 +613,6 @@ $(document).ready(function() {
             endDate = range.end;
             endDate.setHours(23, 59, 59, 999);
         }
-
-        // Tareas paralelas (Proyeccion y Mora no dependen del filtro principal)
-        const pProyeccion = renderProyeccionLiquidez(); 
-        const pMora = renderGlobalMoraMetrics();
 
         try {
             // SOLO descargamos los préstamos (ya tienen nombres y fechas adentro)
@@ -654,9 +640,6 @@ $(document).ready(function() {
             renderSaludCartera(p.lineHealth);
             renderRiesgoEdad(p.ageRisk);
 
-            // Esperar a los pesados
-            await Promise.all([pProyeccion, pMora]);
-
         } catch (error) {
             console.error("Error cargando dashboard:", error);
         } finally {
@@ -675,5 +658,9 @@ $(document).ready(function() {
 
     // Start
     initFilters();
-    loadDashboard();
+    loadDashboard(); // Carga de datos dependientes del filtro
+    
+    // Carga de datos GLOBALES (Singleton - Solo una vez)
+    renderProyeccionLiquidez(); 
+    renderGlobalMoraMetrics();
 });
