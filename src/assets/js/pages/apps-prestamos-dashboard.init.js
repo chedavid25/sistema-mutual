@@ -1,7 +1,7 @@
 /**
  * apps-prestamos-dashboard.init.js
  * Motor analítico y visualización de créditos.
- * Versión Optimizada: Carga paralela y reducción de ciclos CPU.
+ * Versión FINAL: Eliminación de dependencias externas para velocidad máxima.
  */
 
 import { db } from '../firebase-config.js';
@@ -46,70 +46,8 @@ $(document).ready(function() {
         riesgoEdad: null
     };
 
-    // Cache Global de Clientes
-    let clientCache = {}; 
-    let isClientCacheLoaded = false;
-    const CACHE_KEY = 'prestamos_client_cache_v1';
-    const CACHE_EXPIRY = 1000 * 60 * 60 * 24; // 24 horas
-
-    /**
-     * Carga de Clientes en Memoria con LocalStorage (Super Optimizado)
-     */
-    const preloadClientCache = async () => {
-        if (isClientCacheLoaded) return;
-        
-        // 1. Intentar cargar de LocalStorage
-        try {
-            const cached = localStorage.getItem(CACHE_KEY);
-            if (cached) {
-                const parsed = JSON.parse(cached);
-                const now = new Date().getTime();
-                if (now - parsed.timestamp < CACHE_EXPIRY) {
-                    clientCache = parsed.data;
-                    // Rehidratar fechas (vienen como strings del JSON)
-                    Object.values(clientCache).forEach(c => {
-                        if (c.birthDate) c.birthDate = new Date(c.birthDate);
-                    });
-                    isClientCacheLoaded = true;
-                    console.log(`Clientes cargados desde LocalStorage: ${Object.keys(clientCache).length}`);
-                    return;
-                }
-            }
-        } catch (e) {
-            console.warn("Error leyendo cache local:", e);
-        }
-
-        // 2. Si no hay cache válido, buscar en Firebase
-        try {
-            console.log("Iniciando descarga de clientes (Firebase)...");
-            const q = query(collection(db, "clients"), orderBy("fullName"), limit(4000)); 
-            const snap = await getDocs(q);
-            
-            snap.forEach(doc => {
-                const data = doc.data();
-                clientCache[doc.id] = {
-                    fullName: data.fullName || "Sin Nombre",
-                    birthDate: data.birthDate ? data.birthDate.toDate() : null
-                };
-            });
-            
-            // 3. Guardar en LocalStorage
-            try {
-                localStorage.setItem(CACHE_KEY, JSON.stringify({
-                    timestamp: new Date().getTime(),
-                    data: clientCache
-                }));
-            } catch (e) {
-                console.warn("No se pudo guardar cache (posiblemente cuota excedida)", e);
-            }
-
-            isClientCacheLoaded = true;
-            console.log(`Clientes descargados y cacheados: ${Object.keys(clientCache).length}`);
-            
-        } catch (error) {
-            console.error("Error en precarga de caché:", error);
-        }
-    };
+    // Mapa de Nombres en Memoria (Se llena dinámicamente)
+    let cuitNames = {}; 
 
     const initFilters = () => {
         const currentYear = new Date().getFullYear();
@@ -150,9 +88,6 @@ $(document).ready(function() {
         return { start, end };
     };
 
-    /**
-     * Optimización: Recibe 'today' para no instanciarlo miles de veces
-     */
     const calculateAge = (birthDate, todayDate) => {
         if (!birthDate) return null;
         const birth = birthDate.toDate ? birthDate.toDate() : new Date(birthDate);
@@ -173,14 +108,14 @@ $(document).ready(function() {
         );
 
         const querySnapshot = await getDocs(q);
-        console.log(`FetchData: ${querySnapshot.size} registros.`);
+        console.log(`FetchData: ${querySnapshot.size} registros encontrados.`);
         const results = [];
         querySnapshot.forEach((doc) => results.push(doc.data()));
         return results;
     };
 
     /**
-     * PROCESAMIENTO CENTRALIZADO (Optimizado)
+     * PROCESAMIENTO CENTRALIZADO
      */
     const processDashboardData = (data) => {
         const kpis = { expected: 0, paid: 0, mora: 0, totalDelayedDays: 0, delayedItemsCount: 0 };
@@ -190,14 +125,13 @@ $(document).ready(function() {
         const paymentStates = { 'PAGADO': 0, 'PARCIAL': 0, 'IMPAGO': 0 };
         const lineDelay = {};
         const lineHealth = {};
-        const activeCuits = new Set();
-        const paymentsByClient = {};
+        const paymentsByClient = {}; // CUIT -> Monto
         const monthlyRefinancing = {}; 
         const providerDelay = {}; 
         const portfolioComposition = { 'Vigente': 0, 'Mora 30': 0, 'Mora 60': 0, 'Mora 90+': 0 };
         const ageRisk = { '18-25': { exp: 0, paid: 0 }, '26-35': { exp: 0, paid: 0 }, '36-45': { exp: 0, paid: 0 }, '46-60': { exp: 0, paid: 0 }, '+60': { exp: 0, paid: 0 }, 'N/D': { exp: 0, paid: 0 } };
 
-        const today = new Date(); // Instanciado una sola vez para el bucle
+        const today = new Date(); 
 
         data.forEach(item => {
             const date = item.dueDate.toDate ? item.dueDate.toDate() : new Date(item.dueDate);
@@ -211,6 +145,11 @@ $(document).ready(function() {
 
             const isNewSale = parseInt(item.installmentNumber) === 1; 
             
+            // Guardar Nombre en caché local para uso posterior
+            if (item.clientCuit && item.clientName) {
+                cuitNames[item.clientCuit] = item.clientName;
+            }
+
             // 1. VENTAS / DINERO FRESCO (Solo cuota 1)
             if (isNewSale) {
                 const issueDate = item.issueDate ? (item.issueDate.toDate ? item.issueDate.toDate() : new Date(item.issueDate)) : date;
@@ -281,7 +220,6 @@ $(document).ready(function() {
             if (lineDelay[line]) {
                  lineDelay[line].count = (lineDelay[line].count || 0) + 1;
             } else if (currentDelay > 0) {
-                 // fix initial logic
                  lineDelay[line] = { totalDelay: currentDelay, count: 1 };
             }
 
@@ -290,18 +228,16 @@ $(document).ready(function() {
             else if (currentDelay <= 60) portfolioComposition['Mora 60'] += capital;
             else portfolioComposition['Mora 90+'] += capital;
 
+            // 3. RIESGO Y DEMOGRAFICO (Usando datos des-normalizados)
             if (item.clientCuit) {
-                 activeCuits.add(String(item.clientCuit));
                  if (paid > 0) {
                      paymentsByClient[item.clientCuit] = (paymentsByClient[item.clientCuit] || 0) + paid;
                  }
 
-                 // Optimización: Lectura segura de caché
-                 const client = clientCache[item.clientCuit];
                  let ageGroup = 'N/D';
-                 if (client && client.birthDate) {
-                     // Optimización: pasamos 'today'
-                     const age = calculateAge(client.birthDate, today);
+                 // Aquí usamos la fecha que YA viene en la cuota, sin consultar caché
+                 if (item.clientBirthDate) {
+                     const age = calculateAge(item.clientBirthDate, today);
                      if (age >= 18 && age <= 25) ageGroup = '18-25';
                      else if (age >= 26 && age <= 35) ageGroup = '26-35';
                      else if (age >= 36 && age <= 45) ageGroup = '36-45';
@@ -315,7 +251,7 @@ $(document).ready(function() {
 
         return {
             kpis, monthlyEvolucion, productsRanking, monthlyFlujo, paymentStates, 
-            lineDelay, lineHealth, activeCuits, paymentsByClient,
+            lineDelay, lineHealth, paymentsByClient,
             monthlyRefinancing, providerDelay, portfolioComposition, ageRisk
         };
     };
@@ -501,9 +437,10 @@ $(document).ready(function() {
             document.querySelector("#chart-top-pagadores").innerHTML = '<div class="alert alert-warning text-center">Sin pagos en este periodo.</div>';
             return;
         }
+        // USAMOS EL MAPA 'cuitNames' que llenamos en el bucle principal
         const payerData = sortedPayers.map(([cuit, amount]) => {
-            const client = clientCache[cuit];
-            return { name: client ? client.fullName : `CUIT ${cuit}`, amount: amount };
+            const name = cuitNames[cuit] || `CUIT ${cuit}`;
+            return { name: name, amount: amount };
         });
         const options = {
             chart: { type: 'bar', height: 350, toolbar: { show: false } },
@@ -533,11 +470,12 @@ $(document).ready(function() {
 
             const buckets = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 };
             const clientDebt = {};
+            const localCuitNames = {}; // Mapa local para este contexto
 
             snap.forEach(doc => {
                 const data = doc.data();
                 const due = data.dueDate.toDate ? data.dueDate.toDate() : new Date(data.dueDate);
-                if (due >= today) return; // Filtro memoria: No vencido aun
+                if (due >= today) return; 
 
                 const debt = data.remainingBalance || 0;
                 if (debt <= 0) return;
@@ -553,6 +491,8 @@ $(document).ready(function() {
                 if (data.clientCuit) {
                     if (!clientDebt[data.clientCuit]) clientDebt[data.clientCuit] = 0;
                     clientDebt[data.clientCuit] += debt;
+                    // Guardar nombre si existe en la cuota (desnormalizado)
+                    if (data.clientName) localCuitNames[data.clientCuit] = data.clientName;
                 }
             });
 
@@ -575,8 +515,8 @@ $(document).ready(function() {
             const sortedDebtors = Object.entries(clientDebt).sort(([,a], [,b]) => b - a).slice(0, 10);
             if (sortedDebtors.length > 0) {
                  const debtorData = sortedDebtors.map(([cuit, amount]) => {
-                    const client = clientCache[cuit];
-                    return { name: client ? client.fullName : `CUIT ${cuit}`, amount: amount };
+                    const name = localCuitNames[cuit] || `CUIT ${cuit}`; // Usar nombre local
+                    return { name: name, amount: amount };
                 });
                 const topMorososOptions = {
                     chart: { type: 'bar', height: 350, toolbar: { show: false } },
@@ -667,7 +607,7 @@ $(document).ready(function() {
     };
 
     /**
-     * CARGA PRINCIPAL (Optimizada)
+     * CARGA PRINCIPAL (Optimizado al Máximo)
      */
     const loadDashboard = async () => {
         btnApply.prop('disabled', true).html('<i class="bx bx-loader bx-spin me-1"></i> Actualizando...');
@@ -684,19 +624,16 @@ $(document).ready(function() {
             endDate.setHours(23, 59, 59, 999);
         }
 
-        // OPTIMIZACIÓN CLAVE: Disparar tareas independientes en paralelo
-        // No esperamos (await) a los gráficos pesados para seguir procesando lo principal.
+        // Tareas paralelas (Proyeccion y Mora no dependen del filtro principal)
         const pProyeccion = renderProyeccionLiquidez(); 
         const pMora = renderGlobalMoraMetrics();
 
         try {
-            // Cargar datos principales + Cache clientes
-            const [_, fetchedData] = await Promise.all([
-                preloadClientCache(),
-                fetchData(startDate, endDate)
-            ]);
+            // SOLO descargamos los préstamos (ya tienen nombres y fechas adentro)
+            // Adiós a la descarga masiva de clientes.
+            const fetchedData = await fetchData(startDate, endDate);
             
-            // Procesar y renderizar Dashboard principal INMEDIATAMENTE
+            // Procesar
             const p = processDashboardData(fetchedData);
 
             updateKPIs(p.kpis);
@@ -706,21 +643,18 @@ $(document).ready(function() {
             const saturacion = ((p.paymentStates['PARCIAL'] / totalOps) * 100).toFixed(1);
             $('#kpi-saturacion').text(saturacion);
 
-            // Tab 1
+            // Renderizar gráficos ligeros INMEDIATAMENTE
             renderEvolucion(p.monthlyEvolucion);
             renderRanking(p.productsRanking);
             renderDineroFresco(p.monthlyRefinancing);
             renderFlujo(p.monthlyFlujo);
             renderTopPagadores(p.paymentsByClient);
-            
-            // Tab 2
             renderComposicionCartera(p.portfolioComposition);
             renderDemoraProveedor(p.providerDelay);
             renderSaludCartera(p.lineHealth);
             renderRiesgoEdad(p.ageRisk);
 
-            // Ahora sí, esperamos a que terminen los pesados si no han terminado, 
-            // pero el usuario ya ve el resto.
+            // Esperar a los pesados
             await Promise.all([pProyeccion, pMora]);
 
         } catch (error) {
