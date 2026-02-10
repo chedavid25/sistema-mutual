@@ -208,6 +208,7 @@ $(document).ready(function() {
                     dueDate: dueDate,
                     paymentDate: paymentDate,
                     refinancedAmount: parseFloat(row["Monto Refinanciado"] || row.refinancedAmount || 0),
+                    disbursedAmount: parseFloat(row["Monto Prestamo"] || row["Capital"] || row.disbursedAmount || 0),
                     expectedAmount,
                     paidAmount,
                     remainingBalance,
@@ -272,9 +273,20 @@ $(document).ready(function() {
             batchPromises.push(batch.commit());
         }
 
-        // Ejecutar todas las escrituras en paralelo
-        statusText.text(`Escribiendo en base de datos (${batchPromises.length} lotes)...`);
-        await Promise.all(batchPromises);
+        // Ejecutar todas las escrituras en paralelo con reporte de progreso
+        const totalBatches = batchPromises.length;
+        let completedBatches = 0;
+        
+        statusText.text(`Escribiendo en base de datos (0/${totalBatches} lotes)...`);
+        
+        await Promise.all(batchPromises.map(p => p.then(() => {
+            completedBatches++;
+            statusText.text(`Escribiendo en base de datos (${completedBatches}/${totalBatches} lotes)...`);
+            // Manteer la barra llena pero animada
+            progressBar.addClass('progress-bar-striped progress-bar-animated');
+        })));
+
+        progressBar.removeClass('progress-bar-striped progress-bar-animated');
 
         // Feedback visual de finalización
         progressBar.css('width', '100%');

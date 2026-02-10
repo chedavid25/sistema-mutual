@@ -162,14 +162,13 @@ $(document).ready(function() {
     };
 
     /**
-     * PROCESAMIENTO CENTRALIZADO (Single Pass)
-     * Recorre los datos UNA sola vez y genera todas las métricas.
+     * PROCESAMIENTO CENTRALIZADO (Single Pass) - CORREGIDO
      */
     const processDashboardData = (data) => {
         // Inicializar acumuladores (Legacy)
         const kpis = { expected: 0, paid: 0, mora: 0, totalDelayedDays: 0, delayedItemsCount: 0 };
         const monthlyEvolucion = {};
-        const productsRanking = {};
+        const productsRanking = {}; // Ranking por volumen de cuota (Ingreso esperado)
         const monthlyFlujo = {};
         const paymentStates = { 'PAGADO': 0, 'PARCIAL': 0, 'IMPAGO': 0 };
         const lineDelay = {};
@@ -178,8 +177,8 @@ $(document).ready(function() {
         const paymentsByClient = {};
 
         // Nuevas Métricas
-        const monthlyRefinancing = {}; // { month: { cash: 0, refinanced: 0 } }
-        const providerDelay = {}; // { provider: { totalDelay: 0, count: 0, amount: 0 } }
+        const monthlyRefinancing = {}; 
+        const providerDelay = {}; 
         const portfolioComposition = { 'Vigente': 0, 'Mora 30': 0, 'Mora 60': 0, 'Mora 90+': 0 };
         const ageRisk = { '18-25': { exp: 0, paid: 0 }, '26-35': { exp: 0, paid: 0 }, '36-45': { exp: 0, paid: 0 }, '46-60': { exp: 0, paid: 0 }, '+60': { exp: 0, paid: 0 }, 'N/D': { exp: 0, paid: 0 } };
 
@@ -188,15 +187,38 @@ $(document).ready(function() {
         data.forEach(item => {
             // Conversiones comunes
             const date = item.dueDate.toDate ? item.dueDate.toDate() : new Date(item.dueDate);
-            const month = date.getMonth();
+            const month = date.getMonth(); // 0-11
             const line = item.productLine || 'Otros';
-            const provider = item.provider || 'Mutual'; // Default provider if missing
-            const capital = item.expectedAmount || 0;
-            const paid = item.paidAmount || 0;
-            const refinanced = item.refinancedAmount || 0;
-            const debt = item.remainingBalance || 0;
+            const provider = item.provider || 'Mutual';
+            
+            // Valores de la CUOTA (Se suman siempre)
+            const capital = item.expectedAmount || 0; // Monto Cuota
+            const paid = item.paidAmount || 0;        // Lo que pagó
+            const debt = item.remainingBalance || 0;  // Lo que debe de esta cuota
 
-            // 1. KPIs Basics
+            // Valores del PRÉSTAMO (Solo sumar una vez por préstamo)
+            // Usamos la Cuota 1 como bandera, o verificamos fecha de emisión si queremos ver ventas del mes
+            const isNewSale = parseInt(item.installmentNumber) === 1; 
+            
+            // --- 1. LÓGICA DE VENTAS / COLOCACIÓN (Solo Cuota 1) ---
+            if (isNewSale) {
+                // Fecha de Emisión para graficar cuándo se vendió, no cuándo vence la cuota
+                const issueDate = item.issueDate ? (item.issueDate.toDate ? item.issueDate.toDate() : new Date(item.issueDate)) : date;
+                const saleMonth = issueDate.getMonth();
+
+                if (!monthlyRefinancing[saleMonth]) monthlyRefinancing[saleMonth] = { cash: 0, refinanced: 0 };
+                
+                // Aquí sumamos los totales del préstamo completo
+                const loanRefinanced = item.refinancedAmount || 0; 
+                const loanCash = item.disbursedAmount || 0; // O calcular (MontoPrestamo - Refinanciado)
+
+                monthlyRefinancing[saleMonth].refinanced += loanRefinanced;
+                monthlyRefinancing[saleMonth].cash += loanCash;
+            }
+
+            // --- 2. LÓGICA DE FLUJO Y COBRANZA (Por cada cuota) ---
+            
+            // KPIs Basics
             kpis.expected += Number(capital.toFixed(2));
             kpis.paid += Number(paid.toFixed(2));
             
@@ -209,36 +231,26 @@ $(document).ready(function() {
                 kpis.delayedItemsCount++;
             }
 
-            // 2. Evolución (Sin cambios)
-            if (!monthlyRefinancing[month]) monthlyRefinancing[month] = { cash: 0, refinanced: 0 };
-            const effectiveCash = Math.max(0, paid - refinanced);
-            monthlyRefinancing[month].cash += effectiveCash;
-            monthlyRefinancing[month].refinanced += refinanced;
-
+            // Evolución Vencimientos (No Ventas)
             if (!monthlyEvolucion[month]) monthlyEvolucion[month] = { amount: 0, count: 0 };
             monthlyEvolucion[month].amount += capital;
             monthlyEvolucion[month].count += 1;
 
-            // 3. Ranking Productos (Sin cambios)
+            // ... (Resto de tu lógica de Flujo, Ranking, etc. sigue igual) ...
             productsRanking[line] = (productsRanking[line] || 0) + capital;
 
-            // 4. Flujo de Caja (Sin cambios)
             if (!monthlyFlujo[month]) monthlyFlujo[month] = { expected: 0, paid: 0 };
             monthlyFlujo[month].expected += capital;
             monthlyFlujo[month].paid += paid;
 
-            // 5. Comportamiento Pago (Legacy -> KPI Saturación)
+            // Estado Pago
             const status = (item.status || 'IMPAGO').toUpperCase();
             if (paymentStates[status] !== undefined) paymentStates[status]++;
 
-            // 6. Atraso & Salud & Proveedor
-            if (!lineDelay[line]) lineDelay[line] = { totalDelay: 0, count: 0 };
-            if (!lineHealth[line]) lineHealth[line] = { expected: 0, paid: 0 };
-            
+            // Atraso Proveedor
             if (!providerDelay[provider]) providerDelay[provider] = { totalDelay: 0, count: 0, amount: 0 };
             providerDelay[provider].amount += capital;
 
-            // Cálculo de atraso puntual
             let currentDelay = 0;
             const due = date;
             const paidDate = item.paymentDate ? (item.paymentDate.toDate ? item.paymentDate.toDate() : new Date(item.paymentDate)) : null;
@@ -255,31 +267,34 @@ $(document).ready(function() {
             if (currentDelay < 0) currentDelay = 0;
             
             if (currentDelay > 0) {
+                lineDelay[line] = lineDelay[line] || { totalDelay: 0, count: 0 }; // Init si no existe
+                lineHealth[line] = lineHealth[line] || { expected: 0, paid: 0 }; // Init si no existe
+
                 lineDelay[line].totalDelay += currentDelay;
                 lineDelay[line].count++;
                 
                 providerDelay[provider].totalDelay += currentDelay;
                 providerDelay[provider].count++;
             }
-
-            // Salud Cartera
+            
+            // Inicializar Health si no entró al if de delay
+            if (!lineHealth[line]) lineHealth[line] = { expected: 0, paid: 0 };
             lineHealth[line].expected += capital;
             lineHealth[line].paid += paid;
 
-            // Composición Cartera (Buckets del periodo)
-            if (currentDelay <= 5) portfolioComposition['Vigente'] += capital; // Tolerancia 5 días
+            // Buckets Mora
+            if (currentDelay <= 5) portfolioComposition['Vigente'] += capital;
             else if (currentDelay <= 30) portfolioComposition['Mora 30'] += capital;
             else if (currentDelay <= 60) portfolioComposition['Mora 60'] += capital;
             else portfolioComposition['Mora 90+'] += capital;
 
-            // 7. Demográfico & Pagadores & Riesgo/Edad
+            // Riesgo Edad
             if (item.clientCuit) {
                  activeCuits.add(String(item.clientCuit));
                  if (paid > 0) {
                      paymentsByClient[item.clientCuit] = (paymentsByClient[item.clientCuit] || 0) + paid;
                  }
 
-                 // Riesgo por Edad
                  const client = clientCache[item.clientCuit];
                  let ageGroup = 'N/D';
                  if (client && client.birthDate) {
