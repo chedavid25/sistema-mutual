@@ -119,6 +119,7 @@ $(document).ready(function() {
         const lineHealth = {};
         const paymentsByClient = {};
         const monthlyRefinancing = {}; 
+        const seenLoans = new Set(); 
         const providerDelay = {}; 
         const portfolioComposition = { 'Vigente': 0, 'Mora 30': 0, 'Mora 60': 0, 'Mora 90+': 0 };
         const ageRisk = { '18-25': { exp: 0, paid: 0 }, '26-35': { exp: 0, paid: 0 }, '36-45': { exp: 0, paid: 0 }, '46-60': { exp: 0, paid: 0 }, '+60': { exp: 0, paid: 0 }, 'N/D': { exp: 0, paid: 0 } };
@@ -138,13 +139,21 @@ $(document).ready(function() {
             // Cacheo de nombres
             if (item.clientCuit && item.clientName) cuitNames[item.clientCuit] = item.clientName;
 
-            // 1. Ventas (Solo cuota 1)
-            if (isNewSale) {
+            // 2. Dinero Fresco (Agrupado por Préstamo Único en este set de datos)
+            // Si detectamos un préstamo, sumamos su capital a su mes de emisión.
+            // Usamos un Set externo para evitar duplicados si vienen varias cuotas del mismo préstamo.
+            if (!seenLoans.has(item.loanId)) {
+                seenLoans.add(item.loanId);
+                
                 const issueDate = item.issueDate ? (item.issueDate.toDate ? item.issueDate.toDate() : new Date(item.issueDate)) : date;
                 const saleMonth = issueDate.getMonth();
+                const loanRefinanced = item.refinancedAmount || 0; 
+                const totalDisbursed = item.disbursedAmount || 0; 
+                const loanCash = Math.max(0, totalDisbursed - loanRefinanced);
+
                 if (!monthlyRefinancing[saleMonth]) monthlyRefinancing[saleMonth] = { cash: 0, refinanced: 0 };
-                monthlyRefinancing[saleMonth].refinanced += (item.refinancedAmount || 0);
-                monthlyRefinancing[saleMonth].cash += (item.disbursedAmount || 0);
+                monthlyRefinancing[saleMonth].refinanced += loanRefinanced;
+                monthlyRefinancing[saleMonth].cash += loanCash;
             }
 
             // 2. KPIs y Flujo
@@ -432,7 +441,8 @@ $(document).ready(function() {
             colors: ['#2ab57d'],
             plotOptions: { bar: { horizontal: true } },
             xaxis: { categories: payerData.map(d => d.name) },
-            dataLabels: { enabled: true, formatter: (val) => "$" + val.toLocaleString('es-AR'), style: { colors: ['#fff'] } }
+            dataLabels: { enabled: true, formatter: (val) => "$" + val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), style: { colors: ['#fff'] } },
+            tooltip: { y: { formatter: (val) => "$" + val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) } }
         };
         if (charts.topPagadores) charts.topPagadores.destroy();
         document.querySelector("#chart-top-pagadores").innerHTML = "";
@@ -512,7 +522,8 @@ $(document).ready(function() {
                     colors: ['#343a40'],
                     plotOptions: { bar: { horizontal: true } },
                     xaxis: { categories: debtorData.map(d => d.name) },
-                    dataLabels: { enabled: true, formatter: (val) => "$" + val.toLocaleString('es-AR'), style: { colors: ['#fff'] } }
+                    dataLabels: { enabled: true, formatter: (val) => "$" + val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), style: { colors: ['#fff'] } },
+                    tooltip: { y: { formatter: (val) => "$" + val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) } }
                 };
                 if (charts.topMorosos) charts.topMorosos.destroy();
                 document.querySelector("#chart-top-morosos").innerHTML = "";
@@ -535,7 +546,7 @@ $(document).ready(function() {
 
             const today = new Date();
             const future = new Date();
-            future.setMonth(today.getMonth() + 12);
+            future.setMonth(today.getMonth() + 6);
 
             const q = query(
                 collection(db, "loans_installments"),

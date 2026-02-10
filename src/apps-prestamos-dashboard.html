@@ -115,7 +115,7 @@
                                             <div class="card-body">
                                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                                     <h5 class="text-muted mb-0">Cobranza Esperada</h5>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Suma de Capital e Intereses de todas las cuotas que vencen en el periodo seleccionado."></i>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Monto total proyectado a recaudar en el periodo seleccionado. Suma el capital y los intereses de todas las cuotas con vencimiento dentro de este rango de fechas, asumiendo un cumplimiento perfecto de pago."></i>
                                                 </div>
                                                 <div class="d-flex align-items-center">
                                                     <h3 class="mb-0 me-3">$<span id="kpi-capital">0.00</span></h3>
@@ -129,7 +129,7 @@
                                             <div class="card-body">
                                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                                     <h5 class="text-muted mb-0">Efectividad de Cobro</h5>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Cobro Real / Cobro Esperado. >80% es saludable."></i>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Porcentaje del dinero esperado que realmente ingresó a la caja. Se calcula como (Dinero Cobrado / Dinero Esperado) * 100. Un índice superior al 85% indica una gestión de cobranza saludable."></i>
                                                 </div>
                                                 <div class="d-flex align-items-center">
                                                     <h3 class="mb-0 me-3"><span id="kpi-efectividad">0</span>%</h3>
@@ -147,7 +147,7 @@
                                             <div class="card-header">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <h4 class="card-title mb-0">Evolución de Ventas (Vencimientos)</h4>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Total de capital que vence cada mes. Muestra la tendencia de cobranza esperada."></i>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Muestra cuánto capital vence mes a mes. Las barras representan el monto total a cobrar (Capital + Interés) y la línea indica la cantidad de cuotas. Ideal para visualizar picos de vencimientos estacionales."></i>
                                                 </div>
                                             </div>
                                             <div class="card-body">
@@ -160,7 +160,7 @@
                                             <div class="card-header">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <h4 class="card-title mb-0">Dinero Fresco vs Refinanciación</h4>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Distingue cuánto del cobro es dinero real vs. refinanciación de deuda."></i>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Desglosa sus ingresos reales. 'Dinero Fresco' es capital nuevo inyectado por ventas genuinas. 'Refinanciación' es dinero que ya debía el cliente y se reprogramó. Un alto nivel de refinanciación puede ocultar problemas de liquidez."></i>
                                                 </div>
                                             </div>
                                             <div class="card-body">
@@ -177,7 +177,7 @@
                                             <div class="card-header">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <h4 class="card-title mb-0">Flujo de Caja (Esperado vs Real)</h4>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Comparativa diaria de lo que se esperaba cobrar vs. lo realmente recaudado."></i>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Comparativa visual mensual entre lo que se planificó cobrar (gris) y lo que efectivamente se recaudó (verde). Permite detectar rápidamente meses con bajo rendimiento en la cobranza."></i>
                                                 </div>
                                             </div>
                                             <div class="card-body">
@@ -190,7 +190,7 @@
                                             <div class="card-header">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <h4 class="card-title mb-0">Ranking de Productos (Volumen)</h4>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Líneas de crédito que generan mayor volumen de capital esperado."></i>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Clasifica sus líneas de crédito según el volumen de dinero que movilizan. Ayuda a identificar cuáles son los productos estrella que sostienen la facturación de la mutual."></i>
                                                 </div>
                                             </div>
                                             <div class="card-body">
@@ -206,8 +206,8 @@
                                         <div class="card">
                                             <div class="card-header">
                                                 <div class="d-flex justify-content-between align-items-center">
-                                                    <h4 class="card-title mb-0">Proyección de Liquidez (12 Meses)</h4>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Estimación de cobros futuros basada en los vencimientos registrados."></i>
+                                                    <h4 class="card-title mb-0">Proyección de Liquidez (6 Meses)</h4>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Estimación del flujo de fondos futuro para los próximos 6 meses. Basado en las cuotas confirmadas en el sistema. Fundamental para la planificación financiera y toma de decisiones de inversión."></i>
                                                 </div>
                                             </div>
                                             <div class="card-body">
@@ -220,7 +220,7 @@
                                             <div class="card-header">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <h4 class="card-title mb-0">Top 10 Mejores Pagadores</h4>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Clientes con mayor volumen pagado en el periodo actual."></i>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Lista de honor de los clientes que más dinero han pagado en el periodo seleccionado. Útil para acciones de fidelización o para ofrecer nuevos productos premium."></i>
                                                 </div>
                                             </div>
                                             <div class="card-body">
@@ -242,7 +242,7 @@
                                             <div class="card-body">
                                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                                     <h5 class="text-muted mb-0">Atraso Promedio General</h5>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Promedio de días de mora de la cartera actual."></i>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Promedio ponderado de días de demora de toda la cartera activa. Si este número sube mes a mes, indica un deterioro en la calidad de pago de los socios."></i>
                                                 </div>
                                                 <h3 class="mb-0"><span id="kpi-atraso">0</span> días</h3>
                                             </div>
@@ -253,7 +253,7 @@
                                             <div class="card-body">
                                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                                     <h5 class="text-muted mb-0">Índice de Saturación (Parciales)</h5>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="% de Pagos Parciales sobre el Total. Indica dificultad de pago."></i>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Porcentaje de operaciones que se pagan parcialmente. Un índice alto sugiere que los socios tienen voluntad de pago pero poca capacidad financiera (liquidez reducida)."></i>
                                                 </div>
                                                 <h3 class="mb-0"><span id="kpi-saturacion">0</span>%</h3>
                                             </div>
@@ -268,7 +268,7 @@
                                             <div class="card-header">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <h4 class="card-title mb-0">Envejecimiento de Deuda (Bucket Mora)</h4>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Clasificación de la deuda vencida según sus días de atraso."></i>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Clasifica la deuda vencida por gravedad. '0-30' es gestión temprana, mientras que '90+' se considera mora dura o prejudicial. Permite priorizar las acciones de recupero."></i>
                                                 </div>
                                             </div>
                                             <div class="card-body">
@@ -281,7 +281,7 @@
                                             <div class="card-header">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <h4 class="card-title mb-0">Composición de Cartera</h4>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Distribución porcentual del estado de la deuda (Vigente vs. Tramos de Mora)."></i>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Radiografía del estado de salud total. Muestra qué porcentaje de su capital está 'Vigente' (al día) versus en distintos estadios de mora. El objetivo es maximizar la porción verde."></i>
                                                 </div>
                                             </div>
                                             <div class="card-body">
@@ -298,7 +298,7 @@
                                             <div class="card-header">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <h4 class="card-title mb-0">Demora Promedio por Proveedor</h4>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Ranking de proveedores según el atraso promedio de sus clientes referidos."></i>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Ranking de calidad por origen. Muestra qué proveedores o comercializadores traen los clientes más 'lentos' para pagar. Vital para ajustar acuerdos comerciales."></i>
                                                 </div>
                                             </div>
                                             <div class="card-body">
@@ -311,7 +311,7 @@
                                             <div class="card-header">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <h4 class="card-title mb-0">Salud de Cartera por Línea</h4>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Comparación de lo pagado vs. lo esperado por cada línea de crédito."></i>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Efectividad de cobranza desglosada por producto. Permite ver si alguna línea específica (ej. 'Jubilados' o 'Empleados') está rindiendo peor que el promedio."></i>
                                                 </div>
                                             </div>
                                             <div class="card-body">
@@ -328,7 +328,7 @@
                                             <div class="card-header">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <h4 class="card-title mb-0">Perfil de Riesgo por Edad</h4>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Eficacia de cobro desglosada por rangos de edad de los clientes."></i>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Análisis demográfico que cruza la edad del socio con su cumplimiento. Ayuda a definir políticas de riesgo (ej. 'Endurecer requisitos para el rango 18-25 si tienen baja efectividad')."></i>
                                                 </div>
                                             </div>
                                             <div class="card-body">
@@ -341,7 +341,7 @@
                                             <div class="card-header">
                                                 <div class="d-flex justify-content-between align-items-center">
                                                     <h4 class="card-title mb-0">Top 10 Morosos</h4>
-                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Clientes con mayor deuda vencida acumulada."></i>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Listado crítico de los clientes con mayor deuda acumulada en mora. Estos 10 casos suelen representar un porcentaje significativo de la deuda total y requieren gestión personalizada."></i>
                                                 </div>
                                             </div>
                                             <div class="card-body">

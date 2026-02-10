@@ -31,10 +31,18 @@
                             <div class="col-12">
                                 <div class="card">
                                     <div class="card-header">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <h4 class="card-title">Base de Datos de Clientes</h4>
-                                            <div class="text-muted font-size-13">
-                                                Total Clientes: <span id="client-total-count" class="fw-bold">0</span>
+                                        <div class="row align-items-center">
+                                            <div class="col-md-6">
+                                                <h4 class="card-title mb-0">Base de Datos de Clientes</h4>
+                                                <div class="text-muted font-size-13 mt-1">
+                                                    Total Clientes: <span id="client-total-count" class="fw-bold">0</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control" id="server-search-input" placeholder="🔍 Buscar por Nombre o CUIT en toda la base...">
+                                                    <button class="btn btn-primary" type="button" id="btn-server-search">Buscar</button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
