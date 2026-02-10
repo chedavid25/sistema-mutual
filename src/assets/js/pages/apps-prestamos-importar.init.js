@@ -118,6 +118,27 @@ $(document).ready(function() {
         return age;
     };
 
+    /**
+     * Normaliza los nombres de proveedores para evitar duplicados sucios.
+     */
+    const normalizeProvider = (rawName) => {
+       if (!rawName) return 'Desconocido';
+       const upper = String(rawName).toUpperCase().trim();
+       
+       // Reglas específicas para SANCOR
+       if (upper.includes('SANCOR')) {
+           if (upper.includes('UNO') || upper.includes('1')) return 'Sancor 1';
+           if (upper.includes('DOS') || upper.includes('2')) return 'Sancor 2';
+           if (upper.includes('TRES') || upper.includes('3')) return 'Sancor 3';
+           if (upper.includes('CUATRO') || upper.includes('4')) return 'Sancor 4';
+           if (upper.includes('CINCO') || upper.includes('5')) return 'Sancor 5';
+           if (upper.includes('SEIS') || upper.includes('6')) return 'Sancor 6';
+           if (upper.includes('SIETE') || upper.includes('7')) return 'Sancor 7';
+           if (upper.includes('OCHO') || upper.includes('8')) return 'Sancor 8';
+       }
+       return upper; // Devolver original si no coincide
+    };
+
     const processImport = async (data) => {
         dropzone.addClass('d-none');
         progressContainer.removeClass('d-none');
@@ -130,10 +151,13 @@ $(document).ready(function() {
         // Map en memoria para evitar redundancia de clientes en la misma carga
         const uniqueClients = new Map();
 
-        // Procesar en lotes de 400 (Firestore permite 500 max)
-        const batchSize = 400;
+        // Array para almacenar las promesas de los batches
+        const batchPromises = [];
+        
+        // Batch actual
         let batch = writeBatch(db);
-        let currentBatchOperations = 0;
+        let operationCounter = 0;
+        const BATCH_LIMIT = 499; // Límite de seguridad de Firestore
 
         for (const row of data) {
             try {
@@ -153,7 +177,7 @@ $(document).ready(function() {
                 const paidAmount = Math.abs(parseFloat(row["Total Pago"] || 0));
                 const remainingBalance = parseFloat(row["Saldo Cuota"] || 0);
 
-                // Cálculo de Status
+                // Cálculo de Status & Dates
                 const dueDate = excelDateToJS(row.Fecha || row.dueDate);
                 const paymentDate = excelDateToJS(row["Fecha Cobro"]);
                 
@@ -171,14 +195,19 @@ $(document).ready(function() {
                     daysDelayed = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 }
 
+                // Normalización de Proveedor
+                const rawProvider = row.Proveedor || row.provider || "Mutual";
+                const normalizedProvider = normalizeProvider(rawProvider);
+
                 const loanData = {
                     loanId: String(loanId),
                     installmentNumber: Number(installmentNo),
                     productLine: row["Linea Prestamo"] || row.productLine || "General",
-                    provider: row.Proveedor || row.provider || "Mutual",
+                    provider: normalizedProvider,
                     issueDate: excelDateToJS(row["Fecha Emision"]),
                     dueDate: dueDate,
                     paymentDate: paymentDate,
+                    refinancedAmount: parseFloat(row["Monto Refinanciado"] || row.refinancedAmount || 0),
                     expectedAmount,
                     paidAmount,
                     remainingBalance,
@@ -190,12 +219,11 @@ $(document).ready(function() {
 
                 const loanRef = doc(db, "loans_installments", docId);
                 batch.set(loanRef, loanData, { merge: true });
-                currentBatchOperations++;
+                operationCounter++;
                 loanCount++;
 
                 // 3. Preparar datos de Cliente (Únicos por carga)
                 if (!uniqueClients.has(cuit)) {
-                    // Detección flexible de columna de fecha de nacimiento
                     const bDateValue = row["Fecha De Nacimiento"] || row["Fecha Nacimiento"] || row["FECHA NACIMIENTO"] || row.birthDate;
                     const birthDate = excelDateToJS(bDateValue);
                     const clientData = {
@@ -212,37 +240,51 @@ $(document).ready(function() {
 
                     const clientRef = doc(db, "clients", String(cuit));
                     batch.set(clientRef, clientData, { merge: true });
-                    currentBatchOperations++;
+                    operationCounter++;
                     clientCount++;
                 }
 
-                // Ejecutar batch si llegamos al límite
-                if (currentBatchOperations >= batchSize) {
-                    await batch.commit();
-                    batch = writeBatch(db);
-                    currentBatchOperations = 0;
+                // Ejecutar push del batch si llegamos al límite
+                if (operationCounter >= BATCH_LIMIT) {
+                    batchPromises.push(batch.commit()); // Guardar la promesa
+                    batch = writeBatch(db); // Reiniciar batch
+                    operationCounter = 0;
                 }
 
                 processedCount++;
                 
-                // Actualizar progreso UI
-                const percent = Math.round((processedCount / totalRows) * 100);
-                progressBar.css('width', percent + '%');
-                percentageText.text(percent + '%');
-                countText.text(`${processedCount} / ${totalRows} filas`);
-                statusText.text(`Procesando fila ${processedCount}...`);
+                // Actualizar progreso UI (Visualmente, aunque la carga real es al final en Promise.all, da feedback de "Procesando")
+                if (processedCount % 50 === 0) { // Actualizar cada 50 filas para no bloquear UI
+                        const percent = Math.round((processedCount / totalRows) * 100);
+                        progressBar.css('width', percent + '%');
+                        percentageText.text(percent + '%');
+                        countText.text(`${processedCount} / ${totalRows} filas preparadas`);
+                        statusText.text(`Preparando lotes...`);
+                }
 
             } catch (err) {
                 console.error("Error en fila:", row, err);
             }
         }
 
-        // Commit final
-        if (currentBatchOperations > 0) {
-            await batch.commit();
+        // Push final si quedaron operaciones pendientes
+        if (operationCounter > 0) {
+            batchPromises.push(batch.commit());
         }
 
-        // Finalizar
+        // Ejecutar todas las escrituras en paralelo
+        statusText.text(`Escribiendo en base de datos (${batchPromises.length} lotes)...`);
+        await Promise.all(batchPromises);
+
+        // Feedback visual de finalización
+        progressBar.css('width', '100%');
+        percentageText.text('100%');
+        statusText.text('¡Importación Finalizada! Generando resumen...');
+        
+        // Pequeña pausa para que el usuario vea el 100%
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // Finalizar UI
         progressContainer.addClass('d-none');
         resultsContainer.removeClass('d-none');
         summaryText.text(`Se han procesado ${loanCount} cuotas de préstamos y se han actualizado ${uniqueClients.size} perfiles de clientes.`);

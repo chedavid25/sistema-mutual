@@ -40,7 +40,11 @@ $(document).ready(function() {
         bucket: null,
         topMorosos: null,
         topPagadores: null,
-        proyeccion: null
+        proyeccion: null,
+        dineroFresco: null,
+        composicion: null,
+        demoraProv: null,
+        riesgoEdad: null
     };
 
     // Cache Global de Clientes (Optimización de Rendimiento)
@@ -162,16 +166,22 @@ $(document).ready(function() {
      * Recorre los datos UNA sola vez y genera todas las métricas.
      */
     const processDashboardData = (data) => {
-        // Inicializar acumuladores
+        // Inicializar acumuladores (Legacy)
         const kpis = { expected: 0, paid: 0, mora: 0, totalDelayedDays: 0, delayedItemsCount: 0 };
-        const monthlyEvolucion = {}; 
-        const productsRanking = {}; 
-        const monthlyFlujo = {}; 
+        const monthlyEvolucion = {};
+        const productsRanking = {};
+        const monthlyFlujo = {};
         const paymentStates = { 'PAGADO': 0, 'PARCIAL': 0, 'IMPAGO': 0 };
-        const lineDelay = {}; 
-        const lineHealth = {}; 
+        const lineDelay = {};
+        const lineHealth = {};
         const activeCuits = new Set();
-        const paymentsByClient = {}; 
+        const paymentsByClient = {};
+
+        // Nuevas Métricas
+        const monthlyRefinancing = {}; // { month: { cash: 0, refinanced: 0 } }
+        const providerDelay = {}; // { provider: { totalDelay: 0, count: 0, amount: 0 } }
+        const portfolioComposition = { 'Vigente': 0, 'Mora 30': 0, 'Mora 60': 0, 'Mora 90+': 0 };
+        const ageRisk = { '18-25': { exp: 0, paid: 0 }, '26-35': { exp: 0, paid: 0 }, '36-45': { exp: 0, paid: 0 }, '46-60': { exp: 0, paid: 0 }, '+60': { exp: 0, paid: 0 }, 'N/D': { exp: 0, paid: 0 } };
 
         const today = new Date();
 
@@ -180,40 +190,53 @@ $(document).ready(function() {
             const date = item.dueDate.toDate ? item.dueDate.toDate() : new Date(item.dueDate);
             const month = date.getMonth();
             const line = item.productLine || 'Otros';
+            const provider = item.provider || 'Mutual'; // Default provider if missing
+            const capital = item.expectedAmount || 0;
+            const paid = item.paidAmount || 0;
+            const refinanced = item.refinancedAmount || 0;
+            const debt = item.remainingBalance || 0;
 
-            // 1. KPIs
-            kpis.expected += Number((item.expectedAmount || 0).toFixed(2));
-            kpis.paid += Number((item.paidAmount || 0).toFixed(2));
+            // 1. KPIs Basics
+            kpis.expected += Number(capital.toFixed(2));
+            kpis.paid += Number(paid.toFixed(2));
             
-            const isUnpaid = item.status === 'IMPAGO' || item.status === 'PARCIAL' || (item.remainingBalance > 10 && !item.status);
+            const isUnpaid = item.status === 'IMPAGO' || item.status === 'PARCIAL' || (debt > 10 && !item.status);
             if (isUnpaid) {
-                kpis.mora += Number((item.remainingBalance || 0).toFixed(2));
+                kpis.mora += Number(debt.toFixed(2));
             }
             if (item.daysDelayed > 0) {
                 kpis.totalDelayedDays += item.daysDelayed;
                 kpis.delayedItemsCount++;
             }
 
-            // 2. Evolución
+            // 2. Evolución (Sin cambios)
+            if (!monthlyRefinancing[month]) monthlyRefinancing[month] = { cash: 0, refinanced: 0 };
+            const effectiveCash = Math.max(0, paid - refinanced);
+            monthlyRefinancing[month].cash += effectiveCash;
+            monthlyRefinancing[month].refinanced += refinanced;
+
             if (!monthlyEvolucion[month]) monthlyEvolucion[month] = { amount: 0, count: 0 };
-            monthlyEvolucion[month].amount += item.expectedAmount;
+            monthlyEvolucion[month].amount += capital;
             monthlyEvolucion[month].count += 1;
 
-            // 3. Ranking Productos
-            productsRanking[line] = (productsRanking[line] || 0) + item.expectedAmount;
+            // 3. Ranking Productos (Sin cambios)
+            productsRanking[line] = (productsRanking[line] || 0) + capital;
 
-            // 4. Flujo de Caja
+            // 4. Flujo de Caja (Sin cambios)
             if (!monthlyFlujo[month]) monthlyFlujo[month] = { expected: 0, paid: 0 };
-            monthlyFlujo[month].expected += item.expectedAmount;
-            monthlyFlujo[month].paid += item.paidAmount;
+            monthlyFlujo[month].expected += capital;
+            monthlyFlujo[month].paid += paid;
 
-            // 5. Comportamiento Pago
+            // 5. Comportamiento Pago (Legacy -> KPI Saturación)
             const status = (item.status || 'IMPAGO').toUpperCase();
             if (paymentStates[status] !== undefined) paymentStates[status]++;
 
-            // 6. Atraso & Salud (Inicialización)
+            // 6. Atraso & Salud & Proveedor
             if (!lineDelay[line]) lineDelay[line] = { totalDelay: 0, count: 0 };
             if (!lineHealth[line]) lineHealth[line] = { expected: 0, paid: 0 };
+            
+            if (!providerDelay[provider]) providerDelay[provider] = { totalDelay: 0, count: 0, amount: 0 };
+            providerDelay[provider].amount += capital;
 
             // Cálculo de atraso puntual
             let currentDelay = 0;
@@ -221,35 +244,61 @@ $(document).ready(function() {
             const paidDate = item.paymentDate ? (item.paymentDate.toDate ? item.paymentDate.toDate() : new Date(item.paymentDate)) : null;
 
             if (due) {
-                 if (item.status === 'PAGADO' && paidDate) {
+                 if (status === 'PAGADO' && paidDate) {
                      const diffTime = paidDate - due;
                      currentDelay = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                 } else if (due < today && item.status !== 'PAGADO') {
+                 } else if (due < today && status !== 'PAGADO') {
                      const diffTime = today - due;
                      currentDelay = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                  }
             }
             if (currentDelay < 0) currentDelay = 0;
+            
             if (currentDelay > 0) {
                 lineDelay[line].totalDelay += currentDelay;
                 lineDelay[line].count++;
+                
+                providerDelay[provider].totalDelay += currentDelay;
+                providerDelay[provider].count++;
             }
 
             // Salud Cartera
-            lineHealth[line].expected += item.expectedAmount;
-            lineHealth[line].paid += item.paidAmount;
+            lineHealth[line].expected += capital;
+            lineHealth[line].paid += paid;
 
-            // 7. Demográfico & Pagadores
+            // Composición Cartera (Buckets del periodo)
+            if (currentDelay <= 5) portfolioComposition['Vigente'] += capital; // Tolerancia 5 días
+            else if (currentDelay <= 30) portfolioComposition['Mora 30'] += capital;
+            else if (currentDelay <= 60) portfolioComposition['Mora 60'] += capital;
+            else portfolioComposition['Mora 90+'] += capital;
+
+            // 7. Demográfico & Pagadores & Riesgo/Edad
             if (item.clientCuit) {
                  activeCuits.add(String(item.clientCuit));
-                 if (item.paidAmount > 0) {
-                     paymentsByClient[item.clientCuit] = (paymentsByClient[item.clientCuit] || 0) + item.paidAmount;
+                 if (paid > 0) {
+                     paymentsByClient[item.clientCuit] = (paymentsByClient[item.clientCuit] || 0) + paid;
                  }
+
+                 // Riesgo por Edad
+                 const client = clientCache[item.clientCuit];
+                 let ageGroup = 'N/D';
+                 if (client && client.birthDate) {
+                     const age = calculateAge(client.birthDate);
+                     if (age >= 18 && age <= 25) ageGroup = '18-25';
+                     else if (age >= 26 && age <= 35) ageGroup = '26-35';
+                     else if (age >= 36 && age <= 45) ageGroup = '36-45';
+                     else if (age >= 46 && age <= 60) ageGroup = '46-60';
+                     else if (age > 60) ageGroup = '+60';
+                 }
+                 ageRisk[ageGroup].exp += capital;
+                 ageRisk[ageGroup].paid += paid;
             }
         });
 
         return {
-            kpis, monthlyEvolucion, productsRanking, monthlyFlujo, paymentStates, lineDelay, lineHealth, activeCuits, paymentsByClient
+            kpis, monthlyEvolucion, productsRanking, monthlyFlujo, paymentStates, 
+            lineDelay, lineHealth, activeCuits, paymentsByClient,
+            monthlyRefinancing, providerDelay, portfolioComposition, ageRisk
         };
     };
 
@@ -369,9 +418,18 @@ $(document).ready(function() {
             ],
             colors: ['#2ab57d', '#74788d'],
             xaxis: { categories },
+            yaxis: {
+                labels: {
+                    formatter: (val) => {
+                        if (val >= 1000000) return "$" + (val / 1000000).toFixed(1) + "M";
+                        if (val >= 1000) return "$" + (val / 1000).toFixed(0) + "k";
+                        return "$" + val.toFixed(0);
+                    }
+                }
+            },
             tooltip: {
                 y: {
-                    formatter: (val) => "$" + val.toLocaleString('es-AR', { minimumFractionDigits: 2 })
+                    formatter: (val) => "$" + val.toLocaleString('es-AR', { maximumFractionDigits: 0 })
                 }
             }
         };
@@ -782,6 +840,126 @@ $(document).ready(function() {
         });
     };
 
+    /**
+     * Gráfico Dinero Fresco vs Refinanciación
+     */
+    const renderDineroFresco = (monthlyData) => {
+        document.querySelector("#chart-dinero-fresco").innerHTML = "";
+
+        const categories = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const seriesCash = categories.map((_, i) => monthlyData[i]?.cash || 0);
+        const seriesRefinanced = categories.map((_, i) => monthlyData[i]?.refinanced || 0);
+
+        const options = {
+            chart: { type: 'bar', height: 350, stacked: true, toolbar: { show: false } },
+            series: [
+                { name: 'Dinero Fresco', data: seriesCash },
+                { name: 'Refinanciación', data: seriesRefinanced }
+            ],
+            colors: ['#2ab57d', '#f1b44c'],
+            xaxis: { categories },
+            dataLabels: { enabled: false },
+            yaxis: { labels: { formatter: (val) => "$" + (val/1000).toFixed(0) + "k" } },
+            tooltip: { y: { formatter: (val) => "$" + val.toLocaleString('es-AR') } }
+        };
+
+        if (charts.dineroFresco) charts.dineroFresco.destroy();
+        charts.dineroFresco = new ApexCharts(document.querySelector("#chart-dinero-fresco"), options);
+        charts.dineroFresco.render();
+    };
+
+    /**
+     * Gráfico Composición de Cartera (100% Stacked)
+     */
+    const renderComposicionCartera = (composition) => {
+        document.querySelector("#chart-composicion-cartera").innerHTML = "";
+
+        const seriesData = Object.values(composition);
+        const total = seriesData.reduce((a, b) => a + b, 0) || 1;
+        const series = seriesData.map(val => ((val / total) * 100).toFixed(1));
+
+        const options = {
+            chart: { type: 'donut', height: 350 },
+            series: series.map(Number),
+            labels: Object.keys(composition),
+            colors: ['#2ab57d', '#f1b44c', '#fd625e', '#f46a6a'], // Verde, Amarillo, Naranja, Rojo
+            legend: { position: 'bottom' },
+            plotOptions: { pie: { donut: { size: '65%' } } },
+            dataLabels: { enabled: true, formatter: (val) => val.toFixed(1) + "%" },
+            tooltip: { 
+                y: { 
+                    formatter: (val, { seriesIndex, w }) => {
+                        const amount = seriesData[seriesIndex];
+                        return "$" + amount.toLocaleString('es-AR') + " (" + val + "%)";
+                    } 
+                } 
+            }
+        };
+
+        if (charts.composicion) charts.composicion.destroy();
+        charts.composicion = new ApexCharts(document.querySelector("#chart-composicion-cartera"), options);
+        charts.composicion.render();
+    };
+
+    /**
+     * Gráfico Demora Promedio por Proveedor
+     */
+    const renderDemoraProveedor = (providerData) => {
+        document.querySelector("#chart-demora-proveedor").innerHTML = "";
+
+        const sortedProviders = Object.keys(providerData).sort((a, b) => {
+            const delayA = providerData[a].totalDelay / (providerData[a].count || 1);
+            const delayB = providerData[b].totalDelay / (providerData[b].count || 1);
+            return delayB - delayA; // Mayor demora primero
+        }).slice(0, 10); // Top 10
+
+        const series = sortedProviders.map(prov => (providerData[prov].totalDelay / (providerData[prov].count || 1)).toFixed(1));
+
+        const options = {
+            chart: { type: 'bar', height: 350, toolbar: { show: false } },
+            series: [{ name: 'Días de Atraso Prom.', data: series }],
+            colors: ['#fd625e'],
+            plotOptions: { bar: { horizontal: true } },
+            xaxis: { categories: sortedProviders },
+            dataLabels: { enabled: true, formatter: (val) => val + " días" }
+        };
+
+        if (charts.demoraProv) charts.demoraProv.destroy();
+        charts.demoraProv = new ApexCharts(document.querySelector("#chart-demora-proveedor"), options);
+        charts.demoraProv.render();
+    };
+
+    /**
+     * Gráfico Perfil de Riesgo por Edad
+     */
+    const renderRiesgoEdad = (ageData) => {
+        document.querySelector("#chart-riesgo-edad").innerHTML = "";
+
+        const categories = Object.keys(ageData);
+        // Tasa de Mora = 1 - (Pagado / Esperado). Si pagado > esperado (adelantado), mora es 0.
+        // O mejor: Tasa de Cobro = Pagado / Esperado.
+        const efficiencySeries = categories.map(cat => {
+            const exp = ageData[cat].exp || 1;
+            const pd = ageData[cat].paid || 0;
+            return ((pd / exp) * 100).toFixed(1);
+        });
+
+        const options = {
+            chart: { type: 'radar', height: 350, toolbar: { show: false } },
+            series: [{ name: 'Efectividad de Cobro %', data: efficiencySeries }],
+            labels: categories,
+            colors: ['#5156be'],
+            yaxis: { max: 100, min: 0, tickAmount: 4 },
+            fill: { opacity: 0.2 },
+            markers: { size: 4 },
+            tooltip: { y: { formatter: (val) => val + "%" } }
+        };
+
+        if (charts.riesgoEdad) charts.riesgoEdad.destroy();
+        charts.riesgoEdad = new ApexCharts(document.querySelector("#chart-riesgo-edad"), options);
+        charts.riesgoEdad.render();
+    };
+
     const loadDashboard = async () => {
         btnApply.prop('disabled', true).html('<i class="bx bx-loader bx-spin me-1"></i> Actualizando...');
         showLoadingState();
@@ -794,7 +972,6 @@ $(document).ready(function() {
             const range = getRangeByPeriod(filterYear.val(), filterPeriod.val());
             startDate = range.start;
             endDate = range.end;
-            // Asegurar que el fin de periodo cubra el día completo
             endDate.setHours(23, 59, 59, 999);
         }
 
@@ -809,21 +986,28 @@ $(document).ready(function() {
             const p = processDashboardData(fetchedData);
 
             updateKPIs(p.kpis);
+            
+            // Update Saturacion KPI
+            const totalOps = (p.paymentStates['PAGADO'] + p.paymentStates['PARCIAL'] + p.paymentStates['IMPAGO']) || 1;
+            const saturacion = ((p.paymentStates['PARCIAL'] / totalOps) * 100).toFixed(1);
+            $('#kpi-saturacion').text(saturacion);
+
+            // Tab 1: Rentabilidad
             renderEvolucion(p.monthlyEvolucion);
             renderRanking(p.productsRanking);
+            renderDineroFresco(p.monthlyRefinancing);
             renderFlujo(p.monthlyFlujo);
-            renderPago(p.paymentStates);
-            renderAtrasoLinea(p.lineDelay);
+            renderProyeccionLiquidez(); // Note: Projection is future, mostly static logic but re-render is fine.
+            renderTopPagadores(p.paymentsByClient);
+            
+            // Tab 2: Riesgo
+            // renderPago(p.paymentStates); // Replaced by Composicion
+            renderComposicionCartera(p.portfolioComposition);
+            renderDemoraProveedor(p.providerDelay);
             renderSaludCartera(p.lineHealth);
-            renderDemografico(p.activeCuits); 
-            renderTopPagadores(p.paymentsByClient);  // Top Pagadores del periodo
-            
-            // Métricas Globales (Solo cargar si es la primera vez o si se fuerza recarga)
-            if (!charts.bucket) { 
-                renderProyeccionLiquidez(); 
-                renderGlobalMoraMetrics(); 
-            }
-            
+            renderRiesgoEdad(p.ageRisk);
+            renderGlobalMoraMetrics(); // Bucket & Modosos (Global)
+
         } catch (error) {
             console.error("Error cargando dashboard:", error);
         } finally {
