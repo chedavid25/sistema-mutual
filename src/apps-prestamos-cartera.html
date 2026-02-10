@@ -1,0 +1,89 @@
+@@include("partials/main.html")
+
+    <head>
+        @@include("partials/title-meta.html", {"title": "Cartera de Clientes"})
+        <!-- DataTables -->
+        <link href="assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css" rel="stylesheet" type="text/css" />
+        <link href="assets/libs/datatables.net-buttons-bs4/css/buttons.bootstrap4.min.css" rel="stylesheet" type="text/css" />
+        @@include("partials/head-css.html")
+        <style>
+            .auth-loading { display: none; }
+        </style>
+    </head>
+
+    <body class="auth-loading">
+        <!-- Begin page -->
+        <div id="layout-wrapper">
+
+            @@include("partials/menu.html")
+
+            <!-- ============================================================== -->
+            <!-- Start right Content here -->
+            <!-- ============================================================== -->
+            <div class="main-content">
+
+                <div class="page-content">
+                    <div class="container-fluid">
+
+                        @@include("partials/page-title.html", {"pagetitle": "Mutual", "title": "Cartera de Clientes"})
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h4 class="card-title">Base de Datos de Clientes</h4>
+                                            <div class="text-muted font-size-13">
+                                                Total Clientes: <span id="client-total-count" class="fw-bold">0</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <table id="datatable-clientes" class="table table-bordered dt-responsive nowrap w-100">
+                                            <thead>
+                                                <tr>
+                                                    <th>Nombre Completo</th>
+                                                    <th>CUIT</th>
+                                                    <th>Email</th>
+                                                    <th>Celular / Teléfono</th>
+                                                    <th>Edad</th>
+                                                    <th>Género</th>
+                                                    <th>Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div> <!-- container-fluid -->
+                </div>
+                <!-- End Page-content -->
+
+                @@include("partials/footer.html")
+            </div>
+            <!-- end main content-->
+        </div>
+        <!-- END layout-wrapper -->
+
+        @@include("partials/right-sidebar.html")
+        @@include("partials/vendor-scripts.html")
+        <!-- Required datatable js -->
+        <script src="assets/libs/datatables.net/js/jquery.dataTables.min.js"></script>
+        <script src="assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js"></script>
+        <script src="assets/libs/datatables.net-responsive/js/dataTables.responsive.min.js"></script>
+        
+        <!-- App js -->
+        <script src="assets/js/app.js"></script>
+        
+        <!-- Lógica de Negocio -->
+        <script type="module">
+            import { guardPage } from './assets/js/role-guard.js';
+            guardPage(['super_admin', 'admin', 'administrativo', 'asistente']);
+        </script>
+        <script type="module" src="assets/js/pages/apps-prestamos-cartera.init.js"></script>
+
+    </body>
+</html>

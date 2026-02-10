@@ -1,0 +1,180 @@
+@@include("partials/main.html")
+
+    <head>
+        @@include("partials/title-meta.html", {"title": "Cartera de Clientes"})
+        @@include("partials/head-css.html")
+    </head>
+
+    @@include("partials/body.html")
+
+        <!-- Begin page -->
+        <div id="layout-wrapper">
+
+            @@include("partials/menu.html")
+
+            <!-- ============================================================== -->
+            <!-- Start right Content here -->
+            <!-- ============================================================== -->
+            <div class="main-content">
+
+                <div class="page-content">
+                    <div class="container-fluid">
+
+                        @@include("partials/page-title.html", {"pagetitle": "Préstamos", "title": "Cartera de Clientes"})
+
+                        <!-- Metricas Resumen -->
+                        <div class="row">
+                            <div class="col-xl-3 col-md-6">
+                                <div class="card card-h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <div class="flex-grow-1">
+                                                <span class="text-muted mb-3 lh-1 d-block text-truncate">Total Clientes Historico</span>
+                                                <h4 class="mb-3">
+                                                    <span id="kpi-total-clients">0</span>
+                                                </h4>
+                                            </div>
+                                            <div class="flex-shrink-0 text-end dash-widget">
+                                                <div id="mini-chart1" data-colors='["#5156be"]' class="apex-charts"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-xl-3 col-md-6">
+                                <div class="card card-h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <div class="flex-grow-1">
+                                                <span class="text-muted mb-3 lh-1 d-block text-truncate">Clientes Activos (Con Deuda)</span>
+                                                <h4 class="mb-3">
+                                                    <span id="kpi-active-clients">0</span>
+                                                </h4>
+                                            </div>
+                                            <div class="flex-shrink-0 text-end dash-widget">
+                                                <div id="mini-chart2" data-colors='["#2ab57d"]' class="apex-charts"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-xl-3 col-md-6">
+                                <div class="card card-h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <div class="flex-grow-1">
+                                                <span class="text-muted mb-3 lh-1 d-block text-truncate">Clientes en Mora</span>
+                                                <h4 class="mb-3">
+                                                    <span id="kpi-mora-clients">0</span>
+                                                </h4>
+                                            </div>
+                                            <div class="flex-shrink-0 text-end dash-widget">
+                                                <div id="mini-chart3" data-colors='["#fd625e"]' class="apex-charts"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-xl-3 col-md-6">
+                                <div class="card card-h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <div class="flex-grow-1">
+                                                <span class="text-muted mb-3 lh-1 d-block text-truncate">Edad Promedio</span>
+                                                <h4 class="mb-3">
+                                                    <span id="kpi-avg-age">0</span> años
+                                                </h4>
+                                            </div>
+                                            <div class="flex-shrink-0 text-end dash-widget">
+                                                <div id="mini-chart4" data-colors='["#ffbf53"]' class="apex-charts"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tabla de Clientes -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <table id="datatable-clients" class="table table-bordered dt-responsive nowrap w-100">
+                                            <thead>
+                                                <tr>
+                                                    <th>Nombre Completo</th>
+                                                    <th>DNI / CUIT</th>
+                                                    <th>Edad</th>
+                                                    <th>Contacto</th>
+                                                    <th>Estado</th>
+                                                    <th>Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <!-- Cargado dinámicamente -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Modal Bitácora -->
+                        <div class="modal fade" id="modalBitacora" tabindex="-1" aria-labelledby="modalBitacoraLabel" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="modalBitacoraLabel">Bitácora de Cliente</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <h6 id="bitacoraClientName" class="mb-3 text-primary"></h6>
+                                        <div id="bitacoraList" class="mb-3" style="max-height: 300px; overflow-y: auto;">
+                                            <!-- Notas previas -->
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="newNote" class="form-label">Nueva Nota</label>
+                                            <textarea class="form-control" id="newNote" rows="3" placeholder="Registrar contacto, promesa de pago, etc..."></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                        <button type="button" class="btn btn-primary" id="btnSaveNote">Guardar Nota</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div> <!-- container-fluid -->
+                </div>
+                <!-- End Page-content -->
+
+                @@include("partials/footer.html")
+            </div>
+            <!-- end main content-->
+
+        </div>
+        <!-- END layout-wrapper -->
+
+        @@include("partials/right-sidebar.html")
+        @@include("partials/vendor-scripts.html")
+
+        <!-- Required datatable js -->
+        <script src="assets/libs/datatables.net/js/jquery.dataTables.min.js"></script>
+        <script src="assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js"></script>
+        
+        <!-- App js -->
+        <script src="assets/js/app.js"></script>
+
+        <!-- Logic -->
+        <script type="module">
+             import { guardPage } from './assets/js/role-guard.js';
+             guardPage(['super_admin', 'admin', 'administrativo']);
+        </script>
+        <script type="module" src="assets/js/pages/apps-clientes.init.js?v=1.0"></script>
+
+    </body>
+</html>

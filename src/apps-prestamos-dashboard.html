@@ -1,0 +1,370 @@
+@@include("partials/main.html")
+
+    <head>
+        @@include("partials/title-meta.html", {"title": "Dashboard de Préstamos"})
+        @@include("partials/head-css.html")
+        <style>
+            .auth-loading { display: none; }
+            .card-title-help { cursor: pointer; color: #74788d; }
+            .card-title-help:hover { color: #5156be; }
+            /* Forzado de etiquetas blancas en ApexCharts */
+            .apexcharts-datalabel, 
+            .apexcharts-datalabels text, 
+            .apexcharts-datalabel-value {
+                fill: #ffffff !important;
+                font-weight: 700 !important;
+                filter: drop-shadow(0px 1px 2px rgba(0,0,0,0.5));
+            }
+        </style>
+    </head>
+
+    <body class="auth-loading">
+        <!-- Begin page -->
+        <div id="layout-wrapper">
+
+            @@include("partials/menu.html")
+
+            <!-- ============================================================== -->
+            <!-- Start right Content here -->
+            <!-- ============================================================== -->
+            <div class="main-content">
+
+                <div class="page-content">
+                    <div class="container-fluid">
+
+                        @@include("partials/page-title.html", {"pagetitle": "Mutual", "title": "Dashboard General"})
+
+                        <!-- SECCIÓN DE FILTROS -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div class="row align-items-end">
+                                            <div class="col-md-3 mt-2">
+                                                <label class="form-label">Año</label>
+                                                <select class="form-select" id="filter-year"></select>
+                                            </div>
+                                            <div class="col-md-3 mt-2">
+                                                <label class="form-label">Periodo</label>
+                                                <select class="form-select" id="filter-period">
+                                                    <option value="current" selected>Mes Actual</option>
+                                                    <option value="1">Enero</option>
+                                                    <option value="2">Febrero</option>
+                                                    <option value="3">Marzo</option>
+                                                    <option value="4">Abril</option>
+                                                    <option value="5">Mayo</option>
+                                                    <option value="6">Junio</option>
+                                                    <option value="7">Julio</option>
+                                                    <option value="8">Agosto</option>
+                                                    <option value="9">Septiembre</option>
+                                                    <option value="10">Octubre</option>
+                                                    <option value="11">Noviembre</option>
+                                                    <option value="12">Diciembre</option>
+                                                    <hr>
+                                                    <option value="Q1">1er Trimestre</option>
+                                                    <option value="Q2">2do Trimestre</option>
+                                                    <option value="Q3">3er Trimestre</option>
+                                                    <option value="Q4">4to Trimestre</option>
+                                                    <hr>
+                                                    <option value="S1">1er Semestre</option>
+                                                    <option value="S2">2do Semestre</option>
+                                                    <option value="year">Acumulado Anual</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4 mt-2">
+                                                <label class="form-label">Rango Personalizado</label>
+                                                <div class="input-group">
+                                                    <input type="date" class="form-control" id="filter-start-date">
+                                                    <input type="date" class="form-control" id="filter-end-date">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-2 mt-2">
+                                                <button class="btn btn-primary w-100" id="btn-apply-filters">
+                                                    <i class="bx bx-filter-alt me-1"></i> Aplicar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- KPI CARDS -->
+                        <div class="row">
+                            <div class="col-xl-4 col-md-6">
+                                <div class="card card-h-100">
+                                    <div class="card-body">
+                                        <div class="row align-items-center">
+                                            <div class="col-6">
+                                                <div class="d-flex justify-content-between">
+                                                    <span class="text-muted mb-3 lh-1 d-block text-truncate">Cobranza Esperada</span>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Suma de Capital e Intereses de todas las cuotas que vencen en el periodo seleccionado. Es el 100% teórico a cobrar."></i>
+                                                </div>
+                                                <h4 class="mb-3">
+                                                    $<span id="kpi-capital">0.00</span>
+                                                </h4>
+                                            </div>
+                                            <div class="col-6">
+                                                <div id="mini-chart1" data-colors='["#5156be"]' class="apex-charts mb-2"></div>
+                                            </div>
+                                        </div>
+                                        <div class="text-nowrap">
+                                            <span class="badge bg-soft-success text-success" id="kpi-capital-diff">0%</span>
+                                            <span class="ms-1 text-muted font-size-13">vs mes anterior</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-xl-4 col-md-6">
+                                <div class="card card-h-100">
+                                    <div class="card-body">
+                                        <div class="row align-items-center">
+                                            <div class="col-6">
+                                                <div class="d-flex justify-content-between">
+                                                    <span class="text-muted mb-3 lh-1 d-block text-truncate">Efectividad de Cobro</span>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Mide la eficiencia del periodo. Se calcula dividiendo el Cobro Real sobre el Cobro Esperado. Un 80%+ se considera saludable."></i>
+                                                </div>
+                                                <h4 class="mb-3">
+                                                    <span id="kpi-efectividad">0</span>%
+                                                </h4>
+                                            </div>
+                                            <div class="col-6">
+                                                <div id="mini-chart2" data-colors='["#2ab57d"]' class="apex-charts mb-2"></div>
+                                            </div>
+                                        </div>
+                                        <div class="text-nowrap">
+                                            <span class="badge bg-soft-danger text-danger" id="kpi-efectividad-diff">0%</span>
+                                            <span class="ms-1 text-muted font-size-13">vs mes anterior</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-xl-4 col-md-6">
+                                <div class="card card-h-100">
+                                    <div class="card-body">
+                                        <div class="row align-items-center">
+                                            <div class="col-6">
+                                                <div class="d-flex justify-content-between">
+                                                    <span class="text-muted mb-3 lh-1 d-block text-truncate">Atraso Promedio</span>
+                                                    <i class="bx bx-help-circle card-title-help" data-bs-toggle="tooltip" title="Días promedio que tarda un cliente en pagar después del vencimiento."></i>
+                                                </div>
+                                                <h4 class="mb-3">
+                                                    <span id="kpi-atraso">0</span> días
+                                                </h4>
+                                            </div>
+                                            <div class="col-6">
+                                                <div id="mini-chart3" data-colors='["#fd625e"]' class="apex-charts mb-2"></div>
+                                            </div>
+                                        </div>
+                                        <div class="text-nowrap">
+                                            <span class="badge bg-soft-warning text-warning" id="kpi-atraso-status">Tendencia</span>
+                                            <span class="ms-1 text-muted font-size-13">días de mora real</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- GRÁFICOS PRINCIPALES -->
+                        <div class="row">
+                            <!-- Evolución de Ventas -->
+                            <div class="col-xl-8">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h4 class="card-title">Calendario de Vencimientos</h4>
+                                        <i class="bx bx-help-circle card-title-help" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Muestra el flujo de dinero esperado según las fechas de vencimiento de las cuotas."></i>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="chart-evolucion-ventas" class="apex-charts" data-colors='["#5156be", "#2ab57d"]'></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Ranking de Productos -->
+                            <div class="col-xl-4">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h4 class="card-title">Ranking de Productos</h4>
+                                        <i class="bx bx-help-circle card-title-help" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Muestra cómo se distribuyen las ventas entre las diferentes líneas de préstamos."></i>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="chart-ranking-productos" class="apex-charts"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- Atraso por Línea -->
+                            <div class="col-xl-6">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h4 class="card-title">Atraso Promedio por Línea</h4>
+                                        <i class="bx bx-help-circle card-title-help" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Muestra el promedio de días de demora que acumula cada línea de crédito. Ayuda a identificar qué productos atraen perfiles más riesgosos."></i>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="chart-atraso-linea" class="apex-charts"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Bucket de Mora -->
+                            <div class="col-xl-6">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h4 class="card-title">Envejecimiento de Deuda (Mora)</h4>
+                                        <i class="bx bx-help-circle card-title-help" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Clasifica la deuda según los días de atraso. El tramo de +90 días suele considerarse cartera de difícil recupero."></i>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="chart-bucket-mora" class="apex-charts"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- Salud de Cartera -->
+                            <div class="col-xl-12">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h4 class="card-title">Salud de Cartera (Ranking de Eficiencia por Línea)</h4>
+                                        <i class="bx bx-help-circle card-title-help" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Ranking de líneas de crédito ordenadas de mayor a menor efectividad de cobro real."></i>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="chart-salud-cartera" class="apex-charts"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- Flujo de Caja -->
+                            <div class="col-xl-7">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h4 class="card-title">Flujo de Caja y Recupero</h4>
+                                        <i class="bx bx-help-circle card-title-help" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Comparativa mensual de lo esperado vs lo realmente cobrado, permitiendo medir la efectividad del periodo."></i>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="chart-flujo-caja" class="apex-charts"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Comportamiento de Pago -->
+                            <div class="col-xl-5">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h4 class="card-title">Cartera por Estado (Periodo)</h4>
+                                        <i class="bx bx-help-circle card-title-help" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Muestra la proporción de cuotas Pagadas, Impagas o con Pago Parcial en el rango de fechas seleccionado."></i>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="chart-comportamiento-pago" class="apex-charts"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        <div class="row">
+                            <!-- Proyección de Liquidez -->
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h4 class="card-title">Proyección de Liquidez Futura (12 Meses)</h4>
+                                        <i class="bx bx-help-circle card-title-help" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Muestra cuánto dinero esperás recibir mes a mes en el próximo año, acumulando el capital a recuperar."></i>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="chart-proyeccion-liquidez" class="apex-charts"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        <div class="row">
+                            <!-- Top 10 Morosos -->
+                            <div class="col-xl-6">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h4 class="card-title">Top 10 - Mayor Deuda Pendiente</h4>
+                                        <i class="bx bx-help-circle card-title-help" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Identifica a los clientes con mayor capital en mora acumulado."></i>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="chart-top-morosos" class="apex-charts"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Top 10 Pagadores -->
+                            <div class="col-xl-6">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h4 class="card-title">Top 10 - Mejores Pagadores (Volumen)</h4>
+                                        <i class="bx bx-help-circle card-title-help" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Relevamiento de los clientes que más capital han devuelto a la mutual."></i>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="chart-top-pagadores" class="apex-charts"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- Demográfico -->
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h4 class="card-title">Distribución por Edades</h4>
+                                        <i class="bx bx-help-circle card-title-help" 
+                                           data-bs-toggle="tooltip" 
+                                           title="Perfil de edad de los clientes activos en la mutual."></i>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="chart-demografico" class="apex-charts"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div> <!-- container-fluid -->
+                </div>
+                <!-- End Page-content -->
+
+                @@include("partials/footer.html")
+            </div>
+            <!-- end main content-->
+        </div>
+        <!-- END layout-wrapper -->
+
+        @@include("partials/right-sidebar.html")
+        @@include("partials/vendor-scripts.html")
+        <!-- ApexCharts -->
+        <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+        
+        <!-- App js -->
+        <script src="assets/js/app.js"></script>
+        
+        <!-- Lógica de Negocio -->
+        <script type="module">
+            import { guardPage } from './assets/js/role-guard.js';
+            guardPage(['super_admin', 'admin', 'administrativo', 'asistente']);
+        </script>
+        <script type="module" src="assets/js/pages/apps-prestamos-dashboard.init.js?v=2.0"></script>
+
+    </body>
+</html>

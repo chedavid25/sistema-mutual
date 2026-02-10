@@ -1,0 +1,147 @@
+@@include("partials/main.html")
+
+    <head>
+        @@include("partials/title-meta.html", {"title": "Gestión de Usuarios"})
+        <!-- DataTables -->
+        <link href="assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css" rel="stylesheet" type="text/css" />
+        <link href="assets/libs/datatables.net-buttons-bs4/css/buttons.bootstrap4.min.css" rel="stylesheet" type="text/css" />
+        @@include("partials/head-css.html")
+        <style>
+            .auth-loading { display: none; }
+        </style>
+    </head>
+
+    <body class="auth-loading">
+        <!-- Begin page -->
+        <div id="layout-wrapper">
+
+            @@include("partials/menu.html")
+
+            <!-- ============================================================== -->
+            <!-- Start right Content here -->
+            <!-- ============================================================== -->
+            <div class="main-content">
+
+                <div class="page-content">
+                    <div class="container-fluid">
+
+                        @@include("partials/page-title.html", {"pagetitle": "Administración", "title": "Gestión de Usuarios"})
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h4 class="card-title">Invitaciones y Usuarios</h4>
+                                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalInvitacion">
+                                                <i class="bx bx-plus me-1"></i> Generar Invitación
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <ul class="nav nav-tabs nav-tabs-custom nav-success nav-justified" role="tablist">
+                                            <li class="nav-item">
+                                                <a class="nav-link active" data-bs-toggle="tab" href="#tab-usuarios" role="tab">
+                                                    <span class="d-block d-sm-none"><i class="fas fa-home"></i></span>
+                                                    <span class="d-none d-sm-block">Usuarios Registrados</span> 
+                                                </a>
+                                            </li>
+                                            <li class="nav-item">
+                                                <a class="nav-link" data-bs-toggle="tab" href="#tab-invitaciones" role="tab">
+                                                    <span class="d-block d-sm-none"><i class="far fa-user"></i></span>
+                                                    <span class="d-none d-sm-block">Códigos de Invitación</span> 
+                                                </a>
+                                            </li>
+                                        </ul>
+
+                                        <div class="tab-content p-3 text-muted">
+                                            <div class="tab-pane active" id="tab-usuarios" role="tabpanel">
+                                                <table id="datatable-usuarios" class="table table-bordered dt-responsive nowrap w-100">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Nombre</th>
+                                                            <th>Email</th>
+                                                            <th>Rol</th>
+                                                            <th>Estado</th>
+                                                            <th>Acciones</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody></tbody>
+                                                </table>
+                                            </div>
+                                            <div class="tab-pane" id="tab-invitaciones" role="tabpanel">
+                                                <table id="datatable-invitaciones" class="table table-bordered dt-responsive nowrap w-100">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Código</th>
+                                                            <th>Rol</th>
+                                                            <th>Estado</th>
+                                                            <th>Creado</th>
+                                                            <th>Acciones</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div> <!-- container-fluid -->
+                </div>
+                <!-- End Page-content -->
+
+                @@include("partials/footer.html")
+            </div>
+            <!-- end main content-->
+        </div>
+        <!-- END layout-wrapper -->
+
+        <!-- Modal Generar Invitación -->
+        <div class="modal fade" id="modalInvitacion" tabindex="-1" aria-labelledby="modalInvitacionLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalInvitacionLabel">Generar Nuevo Código</h5>
+                        <button type="button" class="btn-close" data-bs-close="modal" aria-label="Close"></button>
+                    </div>
+                    <form id="form-generar-invitacion">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="inv-role" class="form-label">Rol Destinado</label>
+                                <select class="form-select" id="inv-role" required>
+                                    <option value="administrativo">Administrativo</option>
+                                    <option value="asistente">Asistente</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-close="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Generar Código</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        @@include("partials/vendor-scripts.html")
+        <!-- Required datatable js -->
+        <script src="assets/libs/datatables.net/js/jquery.dataTables.min.js"></script>
+        <script src="assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js"></script>
+        
+        <!-- App js -->
+        <script src="assets/js/app.js"></script>
+        
+        <!-- Lógica de Negocio -->
+        <script type="module">
+            import { guardPage } from './assets/js/role-guard.js';
+            // Proteger página (solo super_admin)
+            guardPage(['super_admin']);
+        </script>
+        <script type="module" src="assets/js/pages/admin-users.init.js"></script>
+
+    </body>
+</html>

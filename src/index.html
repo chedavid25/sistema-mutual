@@ -1,0 +1,203 @@
+@@include("partials/main.html")
+
+    <head>
+        @@include("partials/title-meta.html", {"title": "Resumen General"})
+        @@include("partials/head-css.html")
+        <style>
+            .auth-loading { display: none; }
+            .card-animate:hover { transform: translateY(-5px); transition: all 0.3s; }
+        </style>
+    </head>
+
+    <body class="auth-loading">
+        <!-- Begin page -->
+        <div id="layout-wrapper">
+
+            @@include("partials/menu.html")
+
+            <!-- ============================================================== -->
+            <!-- Start right Content here -->
+            <!-- ============================================================== -->
+            <div class="main-content">
+
+                <div class="page-content">
+                    <div class="container-fluid">
+
+                        @@include("partials/page-title.html", {"pagetitle": "Sistema Mutual", "title": "Dashboard Principal"})
+
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="alert alert-primary border-0" role="alert">
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-shrink-0 me-3">
+                                            <i class="bx bxs-smile font-size-24"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h5 class="alert-heading font-size-16 mb-1">¡Bienvenido al Panel Central!</h5>
+                                            <p class="mb-0">Aquí tienes un resumen ejecutivo del año <span class="fw-bold" id="current-year-label"></span>. Selecciona un módulo para profundizar.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- KPIs de Resumen -->
+                        <div class="row">
+                            <div class="col-xl-3 col-md-6">
+                                <div class="card card-h-100 card-animate">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <div class="flex-grow-1">
+                                                <span class="text-muted mb-3 lh-1 d-block text-truncate">Capital Colocado (Anual)</span>
+                                                <h4 class="mb-3" id="summary-capital">$0</h4>
+                                            </div>
+                                            <div class="flex-shrink-0">
+                                                <div class="avatar-sm m-auto">
+                                                    <span class="avatar-title rounded-circle bg-primary-subtle text-primary font-size-24">
+                                                        <i class="bx bx-money"></i>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-3 col-md-6">
+                                <div class="card card-h-100 card-animate">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <div class="flex-grow-1">
+                                                <span class="text-muted mb-3 lh-1 d-block text-truncate">Efectividad de Cobro</span>
+                                                <h4 class="mb-3" id="summary-effectiveness">0%</h4>
+                                            </div>
+                                            <div class="flex-shrink-0">
+                                                <div class="avatar-sm m-auto">
+                                                    <span class="avatar-title rounded-circle bg-success-subtle text-success font-size-24">
+                                                        <i class="bx bx-check-double"></i>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-3 col-md-6">
+                                <div class="card card-h-100 card-animate">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <div class="flex-grow-1">
+                                                <span class="text-muted mb-3 lh-1 d-block text-truncate">Índice de Mora</span>
+                                                <h4 class="mb-3" id="summary-arrears">0%</h4>
+                                            </div>
+                                            <div class="flex-shrink-0">
+                                                <div class="avatar-sm m-auto">
+                                                    <span class="avatar-title rounded-circle bg-danger-subtle text-danger font-size-24">
+                                                        <i class="bx bx-trending-up"></i>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-3 col-md-6">
+                                <div class="card card-h-100 card-animate">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <div class="flex-grow-1">
+                                                <span class="text-muted mb-3 lh-1 d-block text-truncate">Cuotas Procesadas</span>
+                                                <h4 class="mb-3" id="summary-total-credits">0</h4>
+                                            </div>
+                                            <div class="flex-shrink-0">
+                                                <div class="avatar-sm m-auto">
+                                                    <span class="avatar-title rounded-circle bg-info-subtle text-info font-size-24">
+                                                        <i class="bx bx-list-ul"></i>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Acceso Rápido a Secciones -->
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <h5 class="mb-3">Módulos Sugeridos</h5>
+                            </div>
+                            <div class="col-xl-4 col-md-6">
+                                <div class="card shadow-none border card-h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <div class="avatar-md me-3">
+                                                <span class="avatar-title rounded-circle bg-primary text-white font-size-24">
+                                                    <i class="bx bx-pie-chart-alt-2"></i>
+                                                </span>
+                                            </div>
+                                            <h5 class="font-size-16 mb-0">Dashboard de Gráficos</h5>
+                                        </div>
+                                        <p class="text-muted">Analiza la evolución de las ventas, mora y demografía con visualizaciones interactivas.</p>
+                                        <a href="apps-prestamos-dashboard.html" class="btn btn-soft-primary btn-sm w-100">Ver Análisis <i class="bx bx-right-arrow-alt align-middle ms-1"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-4 col-md-6">
+                                <div class="card shadow-none border card-h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <div class="avatar-md me-3">
+                                                <span class="avatar-title rounded-circle bg-success text-white font-size-24">
+                                                    <i class="bx bx-upload"></i>
+                                                </span>
+                                            </div>
+                                            <h5 class="font-size-16 mb-0">Importar Archivo</h5>
+                                        </div>
+                                        <p class="text-muted">Carga nuevos archivos Excel para actualizar las cuotas y la información de los clientes.</p>
+                                        <a href="apps-prestamos-importar.html" class="btn btn-soft-success btn-sm w-100">Subir Excel <i class="bx bx-right-arrow-alt align-middle ms-1"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-4 col-md-6">
+                                <div class="card shadow-none border card-h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <div class="avatar-md me-3">
+                                                <span class="avatar-title rounded-circle bg-info text-white font-size-24">
+                                                    <i class="bx bx-user-circle"></i>
+                                                </span>
+                                            </div>
+                                            <h5 class="font-size-16 mb-0">Cartera de Clientes</h5>
+                                        </div>
+                                        <p class="text-muted">Consulta y busca en la base de datos de beneficiarios sincronizada desde el motor.</p>
+                                        <a href="apps-prestamos-cartera.html" class="btn btn-soft-info btn-sm w-100">Explorar Clientes <i class="bx bx-right-arrow-alt align-middle ms-1"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div> <!-- container-fluid -->
+                </div>
+                <!-- End Page-content -->
+
+                @@include("partials/footer.html")
+            </div>
+            <!-- end main content-->
+        </div>
+        <!-- END layout-wrapper -->
+
+        @@include("partials/right-sidebar.html")
+        @@include("partials/vendor-scripts.html")
+        <!-- App js -->
+        <script src="assets/js/app.js"></script>
+        <script>
+            document.getElementById('current-year-label').innerText = new Date().getFullYear();
+        </script>
+        <script type="module">
+            import { guardPage } from './assets/js/role-guard.js';
+            guardPage(['super_admin', 'admin', 'administrativo', 'asistente']);
+        </script>
+        <script type="module" src="assets/js/pages/dashboard.init.js"></script>
+
+    </body>
+</html>
