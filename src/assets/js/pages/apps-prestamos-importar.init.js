@@ -151,13 +151,21 @@ $(document).ready(function() {
         // Map en memoria para evitar redundancia de clientes en la misma carga
         const uniqueClients = new Map();
 
-        // Array para almacenar las promesas de los batches
-        const batchPromises = [];
-        
         // Batch actual
         let batch = writeBatch(db);
         let operationCounter = 0;
-        const BATCH_LIMIT = 499; // Límite de seguridad de Firestore
+        const BATCH_LIMIT = 450; // Límite de seguridad
+
+        // Función helper para guardar y reiniciar batch
+        const commitCurrentBatch = async () => {
+             if (operationCounter > 0) {
+                 await batch.commit();
+                 batch = writeBatch(db);
+                 operationCounter = 0;
+             }
+        };
+
+        statusText.text(`Iniciando procesamiento secuencial...`);
 
         for (const row of data) {
             try {
@@ -215,6 +223,9 @@ $(document).ready(function() {
                     status,
                     daysDelayed: daysDelayed,
                     clientCuit: String(cuit),
+                    // OPTIMIZACIÓN: Desnormalización para evitar joins en Dashboard
+                    clientName: row["Nombre Completo"] || row["Nombre y Apellido"] || row.FullName || row.fullName || row.nombre || "Sin Nombre",
+                    clientBirthDate: excelDateToJS(row["Fecha De Nacimiento"] || row["Fecha Nacimiento"] || row.birthDate) || null,
                     updatedAt: serverTimestamp()
                 };
 
@@ -245,23 +256,22 @@ $(document).ready(function() {
                     clientCount++;
                 }
 
-                // Ejecutar push del batch si llegamos al límite
+                // COMMIT INMEDIATO SI ES NECESARIO
                 if (operationCounter >= BATCH_LIMIT) {
-                    batchPromises.push(batch.commit()); // Guardar la promesa
-                    batch = writeBatch(db); // Reiniciar batch
-                    operationCounter = 0;
+                    await commitCurrentBatch();
+                    
+                    // Actualizar UI post-escritura
+                    const percent = Math.round((processedCount / totalRows) * 100);
+                    progressBar.css('width', percent + '%');
+                    percentageText.text(percent + '%');
+                    countText.text(`${processedCount} / ${totalRows} procesadas`);
+                    statusText.text(`Guardando... (Lote de ${loanCount} créditos)`);
+                    
+                    // Mantener la UI responsiva
+                    await new Promise(r => setTimeout(r, 0));
                 }
 
                 processedCount++;
-                
-                // Actualizar progreso UI (Visualmente, aunque la carga real es al final en Promise.all, da feedback de "Procesando")
-                if (processedCount % 50 === 0) { // Actualizar cada 50 filas para no bloquear UI
-                        const percent = Math.round((processedCount / totalRows) * 100);
-                        progressBar.css('width', percent + '%');
-                        percentageText.text(percent + '%');
-                        countText.text(`${processedCount} / ${totalRows} filas preparadas`);
-                        statusText.text(`Preparando lotes...`);
-                }
 
             } catch (err) {
                 console.error("Error en fila:", row, err);
@@ -270,30 +280,16 @@ $(document).ready(function() {
 
         // Push final si quedaron operaciones pendientes
         if (operationCounter > 0) {
-            batchPromises.push(batch.commit());
+            statusText.text(`Guardando últimos registros...`);
+            await commitCurrentBatch();
         }
-
-        // Ejecutar todas las escrituras en paralelo con reporte de progreso
-        const totalBatches = batchPromises.length;
-        let completedBatches = 0;
-        
-        statusText.text(`Escribiendo en base de datos (0/${totalBatches} lotes)...`);
-        
-        await Promise.all(batchPromises.map(p => p.then(() => {
-            completedBatches++;
-            statusText.text(`Escribiendo en base de datos (${completedBatches}/${totalBatches} lotes)...`);
-            // Manteer la barra llena pero animada
-            progressBar.addClass('progress-bar-striped progress-bar-animated');
-        })));
-
-        progressBar.removeClass('progress-bar-striped progress-bar-animated');
 
         // Feedback visual de finalización
         progressBar.css('width', '100%');
         percentageText.text('100%');
+        progressBar.removeClass('progress-bar-striped progress-bar-animated');
         statusText.text('¡Importación Finalizada! Generando resumen...');
         
-        // Pequeña pausa para que el usuario vea el 100%
         await new Promise(resolve => setTimeout(resolve, 800));
 
         // Finalizar UI
