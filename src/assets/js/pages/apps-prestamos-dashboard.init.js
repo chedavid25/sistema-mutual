@@ -129,10 +129,10 @@ $(document).ready(function() {
         data.forEach(item => {
             const date = item.dueDate.toDate ? item.dueDate.toDate() : new Date(item.dueDate);
             const month = date.getMonth();
-            const line = item.productLine || 'Otros';
+            const line = (item.productLine || 'Otros').trim().toUpperCase();
             const provider = item.provider || 'Mutual';
             const capital = item.expectedAmount || 0;
-            const paid = item.paidAmount || 0;
+            const paid = Math.abs(item.paidAmount || 0);
             const debt = item.remainingBalance || 0;
             const isNewSale = parseInt(item.installmentNumber) === 1; 
             
@@ -207,9 +207,13 @@ $(document).ready(function() {
                 providerDelay[provider].count++;
             }
             
-            if (!lineHealth[line]) lineHealth[line] = { expected: 0, paid: 0 };
-            lineHealth[line].expected += capital;
-            lineHealth[line].paid += paid;
+            // Salud de Cartera: SOLO cuotas vencidas o del día (filtro fecha futura)
+            // O si ya hubo un pago (para no penalizar adelantos)
+            if (date <= today || paid > 0) {
+                if (!lineHealth[line]) lineHealth[line] = { expected: 0, paid: 0 };
+                lineHealth[line].expected += capital;
+                lineHealth[line].paid += paid;
+            }
 
             if (lineDelay[line]) {
                  lineDelay[line].count = (lineDelay[line].count || 0) + 1;
@@ -228,14 +232,17 @@ $(document).ready(function() {
                  
                  let ageGroup = 'N/D';
                  if (item.clientBirthDate) {
-                     const age = calculateAge(item.clientBirthDate, today);
+                     const age = calculateAge(item.clientBirthDate, date);
                      if (age >= 18 && age <= 25) ageGroup = '18-25';
                      else if (age >= 26 && age <= 35) ageGroup = '26-35';
                      else if (age >= 36 && age <= 45) ageGroup = '36-45';
                      else if (age >= 46 && age <= 60) ageGroup = '46-60';
                      else if (age > 60) ageGroup = '+60';
                  }
-                 ageRisk[ageGroup].exp += capital;
+                 // Sumar al esperado si venció O si hubo pago (aunque sea adelantado)
+                 if (date <= today || paid > 0) {
+                    ageRisk[ageGroup].exp += capital;
+                 }
                  ageRisk[ageGroup].paid += paid;
             }
         });
