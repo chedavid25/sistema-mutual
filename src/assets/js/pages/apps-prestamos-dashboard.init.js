@@ -110,12 +110,12 @@ $(document).ready(function() {
     // --- PROCESAMIENTO PRINCIPAL (Ventas, Flujo, Riesgo de Periodo) ---
     const processDashboardData = (data) => {
         // Inicializadores
-        const kpis = { expected: 0, paid: 0, mora: 0, totalDelayedDays: 0, delayedItemsCount: 0 };
+        const kpis = { expected: 0, expectedDue: 0, paid: 0, mora: 0, totalDelayedDays: 0, delayedItemsCount: 0 };
         const monthlyEvolucion = {};
         const productsRanking = {};
         const monthlyFlujo = {};
         const paymentStates = { 'PAGADO': 0, 'PARCIAL': 0, 'IMPAGO': 0 };
-        const lineDelay = {};
+        // lineDelay eliminado por falta de uso
         const lineHealth = {};
         const paymentsByClient = {};
         const monthlyRefinancing = {}; 
@@ -159,6 +159,12 @@ $(document).ready(function() {
             // 2. KPIs y Flujo
             kpis.expected += Number(capital.toFixed(2));
             kpis.paid += Number(paid.toFixed(2));
+
+            // Suma INTELIGENTE (solo para calcular el % de Efectividad)
+            // Si la cuota ya venció O si ya se pagó (adelanto), entra en la ecuación
+            if (date <= today || paid > 0) {
+                kpis.expectedDue += Number(capital.toFixed(2));
+            }
             
             const isUnpaid = item.status === 'IMPAGO' || item.status === 'PARCIAL' || (debt > 10 && !item.status);
             if (isUnpaid) kpis.mora += Number(debt.toFixed(2));
@@ -202,7 +208,7 @@ $(document).ready(function() {
             if (currentDelay < 0) currentDelay = 0;
             
             if (currentDelay > 0) {
-                lineDelay[line] = lineDelay[line] || { totalDelay: 0, count: 0 };
+                // lineDelay[line] calculation removed
                 providerDelay[provider].totalDelay += currentDelay;
                 providerDelay[provider].count++;
             }
@@ -215,11 +221,8 @@ $(document).ready(function() {
                 lineHealth[line].paid += paid;
             }
 
-            if (lineDelay[line]) {
-                 lineDelay[line].count = (lineDelay[line].count || 0) + 1;
-            } else if (currentDelay > 0) {
-                 lineDelay[line] = { totalDelay: currentDelay, count: 1 };
-            }
+            // Bloque lineDelay secundario eliminado
+
 
             if (currentDelay <= 5) portfolioComposition['Vigente'] += capital;
             else if (currentDelay <= 30) portfolioComposition['Mora 30'] += capital;
@@ -249,7 +252,7 @@ $(document).ready(function() {
 
         return {
             kpis, monthlyEvolucion, productsRanking, monthlyFlujo, paymentStates, 
-            lineDelay, lineHealth, paymentsByClient,
+            lineHealth, paymentsByClient,
             monthlyRefinancing, providerDelay, portfolioComposition, ageRisk
         };
     };
@@ -257,7 +260,8 @@ $(document).ready(function() {
     // --- ACTUALIZACIÓN UI ---
 
     const updateKPIs = (kpis) => {
-        const effectiveRate = kpis.expected > 0 ? (kpis.paid / kpis.expected) * 100 : 0;
+        // CAMBIO CLAVE: Usamos kpis.expectedDue en lugar de kpis.expected para el porcentaje
+        const effectiveRate = kpis.expectedDue > 0 ? (kpis.paid / kpis.expectedDue) * 100 : 0;
         const avgDelay = kpis.delayedItemsCount > 0 ? (kpis.totalDelayedDays / kpis.delayedItemsCount) : 0;
         $('#kpi-capital').text(kpis.expected.toLocaleString('es-AR', { minimumFractionDigits: 2 }));
         $('#kpi-efectividad').text(effectiveRate.toFixed(1));
