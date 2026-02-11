@@ -185,8 +185,14 @@ $(document).ready(function() {
             monthlyFlujo[month].paid += paid;
 
             // Estados y Proveedores
+            // Estados y Proveedores
             const status = (item.status || 'IMPAGO').toUpperCase();
-            if (paymentStates[status] !== undefined) paymentStates[status]++;
+            
+            // CORRECCIÓN: Solo contar estado si la cuota ya venció O si ya tiene pago
+            // Esto evita que las cuotas futuras "Impagas" ensucien el índice de saturación actual
+            if (date <= today || paid > 0) {
+                if (paymentStates[status] !== undefined) paymentStates[status]++;
+            }
 
             if (!providerDelay[provider]) providerDelay[provider] = { totalDelay: 0, count: 0, amount: 0 };
             providerDelay[provider].amount += capital;
@@ -400,7 +406,7 @@ $(document).ready(function() {
 
         const options = {
             chart: { type: 'bar', height: 350, toolbar: { show: false } },
-            series: [{ name: '% Cobranza Real', data: series }],
+            series: [{ name: '% Cobranza s/Vencido', data: series }],
             plotOptions: { bar: { horizontal: true, barHeight: '50%' } },
             xaxis: { categories: sortedLines, max: 100, labels: { formatter: (val) => val + '%' } },
             colors: ['#2ab57d'],
@@ -422,7 +428,7 @@ $(document).ready(function() {
 
         const options = {
             chart: { type: 'radar', height: 350, toolbar: { show: false } },
-            series: [{ name: 'Efectividad de Cobro %', data: efficiencySeries }],
+            series: [{ name: 'Efectividad (Vencido + Pagado)', data: efficiencySeries }],
             labels: categories,
             colors: ['#5156be'],
             yaxis: { max: 100, min: 0, tickAmount: 4 },
@@ -556,6 +562,7 @@ $(document).ready(function() {
             document.querySelector("#chart-proyeccion-liquidez").innerHTML = '<div class="d-flex justify-content-center align-items-center" style="height: 100%; min-height: 300px;"><div class="text-center"><div class="spinner-border text-primary" role="status"></div></div></div>';
 
             const today = new Date();
+            today.setHours(0, 0, 0, 0);
             const future = new Date();
             future.setMonth(today.getMonth() + 6);
 
